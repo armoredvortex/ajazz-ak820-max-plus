@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  ::-webkit-scrollbar            { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track      { background: transparent; }
+  ::-webkit-scrollbar-thumb      { background: #2e2e45; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover{ background: #3d366b; }
+
+  html, body, #app {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+           transition-all duration-150 select-none cursor-pointer;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover active:scale-95;
+  }
+  .btn-ghost {
+    @apply btn text-white/60 hover:text-white hover:bg-surface-3 active:scale-95;
+  }
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger hover:bg-danger/20 active:scale-95;
+  }
+  .card {
+    @apply bg-surface-1 border border-white/5 rounded-xl p-5;
+  }
+  .label {
+    @apply text-xs font-medium text-white/40 uppercase tracking-wider;
+  }
+  .slider {
+    @apply w-full h-1.5 rounded-full accent-accent cursor-pointer bg-surface-3;
+  }
+}
