@@ -3,43 +3,83 @@
 @tailwind utilities;
 
 @layer base {
-  * { box-sizing: border-box; }
-
-  ::-webkit-scrollbar            { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track      { background: transparent; }
-  ::-webkit-scrollbar-thumb      { background: #2e2e45; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover{ background: #3d366b; }
+  *, *::before, *::after { box-sizing: border-box; }
 
   html, body, #app {
     height: 100%;
     margin: 0;
     padding: 0;
+    background: #000;
+    color: #fff;
     font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar            { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track      { background: transparent; }
+  ::-webkit-scrollbar-thumb      { background: #2a2a2a; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover{ background: #333; }
+
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: #1f1f1f;
+    border-radius: 1px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type='range']::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
   }
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-           transition-all duration-150 select-none cursor-pointer;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+           rounded transition-all duration-100 select-none cursor-pointer
+           disabled:opacity-30 disabled:pointer-events-none;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-hover active:scale-95;
+    @apply btn bg-white text-black hover:bg-white/90 active:scale-[0.97];
   }
   .btn-ghost {
-    @apply btn text-white/60 hover:text-white hover:bg-surface-3 active:scale-95;
+    @apply btn text-white/50 hover:text-white hover:bg-surface-2 active:scale-[0.97];
   }
   .btn-danger {
-    @apply btn bg-danger/10 text-danger hover:bg-danger/20 active:scale-95;
+    @apply btn text-danger hover:bg-danger/10 active:scale-[0.97];
   }
-  .card {
-    @apply bg-surface-1 border border-white/5 rounded-xl p-5;
+
+  /* ── Section label ───────────────────────────────────────── */
+  .sect-label {
+    @apply text-[10px] font-medium text-white/30 uppercase tracking-widest;
   }
-  .label {
-    @apply text-xs font-medium text-white/40 uppercase tracking-wider;
-  }
-  .slider {
-    @apply w-full h-1.5 rounded-full accent-accent cursor-pointer bg-surface-3;
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .divider {
+    @apply border-t border-line;
   }
 }

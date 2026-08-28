@@ -20,30 +20,25 @@ MAGIC = bytes([0xAA, 0x55, 0xCC, 0x33])
 REPORT_LEN = 64
 
 HARDWARE_MODES = {
-    0:  "Static",
-    1:  "Breathing",
-    2:  "Wave",
-    3:  "Ripple",
-    4:  "Reactive",
-    5:  "Rain",
-    6:  "Fire",
-    7:  "Starlight",
-    8:  "Aurora",
-    9:  "Spiral",
-    10: "Vortex",
-    11: "Neon",
-    12: "Matrix",
-    13: "Radar",
-    14: "Scatter",
-    15: "Ocean",
-    16: "Forest",
-    17: "Sunset",
-    18: "Spectrum",
-    19: "Pulse",
-    20: "Thunder",
-    21: "Strobe",
-    22: "Comet",
-    23: "Laser",
+    0:  {"name": "Horizontal Wave", "controls": "BSDC"},
+    1:  {"name": "Chaos",           "controls": "BS"},
+    2:  {"name": "Vertical Wave",   "controls": "BSDC"},
+    3:  {"name": "Beam",            "controls": "BSDC"},
+    4:  {"name": "Cycles",          "controls": "BS"},
+    5:  {"name": "Ripples",         "controls": "BSDC"},
+    6:  {"name": "Static",          "controls": "BC"},
+    7:  {"name": "Breathing",       "controls": "BSC"},
+    8:  {"name": "Cross Waves",     "controls": "BSC"},
+    9:  {"name": "Dual Wave",       "controls": "BSDC2"},  # C2 = dual color
+    10: {"name": "Key Glow",        "controls": "BSC"},
+    11: {"name": "Key Ripple",      "controls": "BSC"},
+    12: {"name": "Snake",           "controls": "BSC"},
+    13: {"name": "Spiral",          "controls": "BSDC"},
+    14: {"name": "Split Flow",      "controls": "BSC"},
+    15: {"name": "Meteor Shower",   "controls": "BSC"},
+    16: {"name": "Windmill",        "controls": "BSC"},
+    17: {"name": "Sine Wave",       "controls": "BSC"},
+    18: {"name": "Row Sweep",       "controls": "BSDC"},
 }
 
 COLORS = {
@@ -215,15 +210,19 @@ class KeyboardRGB:
         speed: int = 2,
         direction: int = 0,
         color: int = 0x07,
+        color2: int = 0x07,
     ) -> None:
+        if mode not in HARDWARE_MODES:
+            raise ValueError(f"Invalid mode id {mode}")
         packet = bytearray(REPORT_LEN)
         packet[0:4] = MAGIC
         packet[4] = 0x07
-        packet[5] = max(0, min(23, mode))
+        packet[5] = mode
         packet[6] = max(0, min(4, brightness))
         packet[7] = max(0, min(4, speed))
         packet[8] = max(0, min(1, direction))
         packet[9] = color & 0xFF
+        packet[10] = color2 & 0xFF   # secondary color for Dual Wave
         self._write(bytes(packet))
 
     # ------------------------------------------------------------------

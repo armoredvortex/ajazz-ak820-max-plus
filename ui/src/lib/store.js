@@ -24,11 +24,12 @@ export const pickerColor = writable('#7c6bff')
 export const hardwareModes   = writable([])
 export const hardwareColors  = writable([])
 export const modeSettings    = writable({
-  mode_id:    18,
+  mode_id:    0,
   brightness: 4,
   speed:      2,
   direction:  0,
   color_name: 'rgb',
+  color2_name: 'blue',
 })
 
 // ── Audio ───────────────────────────────────────────────────────────────

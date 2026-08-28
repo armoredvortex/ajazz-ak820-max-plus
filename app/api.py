@@ -162,7 +162,10 @@ class KeyboardAPI:
     def get_hardware_modes(self) -> dict:
         return {
             "ok": True,
-            "modes": [{"id": k, "name": v} for k, v in HARDWARE_MODES.items()],
+            "modes": [
+                {"id": k, "name": v["name"], "controls": v["controls"]}
+                for k, v in HARDWARE_MODES.items()
+            ],
             "colors": list(COLORS.keys()),
         }
 
@@ -173,11 +176,13 @@ class KeyboardAPI:
         speed: int = 2,
         direction: int = 0,
         color_name: str = "rgb",
+        color2_name: str = "rgb",
     ) -> dict:
         def op(kb):
             self._stop_audio_if_running()
-            color_val = COLORS.get(color_name.lower(), 0x07)
-            kb.set_hardware_mode(mode_id, brightness, speed, direction, color_val)
+            color_val  = COLORS.get(color_name.lower(),  0x07)
+            color2_val = COLORS.get(color2_name.lower(), 0x07)
+            kb.set_hardware_mode(mode_id, brightness, speed, direction, color_val, color2_val)
             return {"ok": True}
 
         return self._kb_op(op)
