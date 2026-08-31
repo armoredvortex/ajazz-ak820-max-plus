@@ -167,7 +167,7 @@
         <!-- Hint -->
         <div class="px-5 h-7 flex items-center border-t border-line">
           <span class="text-2xs text-white/15">
-            Click to paint · Drag to paint multiple · Right color fills, same color erases
+            Left-click to paint · Drag to paint multiple · Same color erases · Right-click to sample
           </span>
         </div>
 

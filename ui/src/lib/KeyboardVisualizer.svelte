@@ -91,13 +91,20 @@
     return 0.299*r + 0.587*g + 0.114*b
   }
 
-  // On mousedown: decide paint or erase based on current key state, then push to KB
-  function startPaint(idx) {
+  // On mousedown: only paint on left-click (button 0); right-click is reserved for sample
+  function startPaint(e, idx) {
+    if (e.button !== 0) return
     const current = $leds[idx]
-    // If key already has the picker color, erase; otherwise paint
     paintMode = (current === $pickerColor) ? 'off' : 'on'
     applyPaint(idx)
     if ($connected) sendKey(idx)
+  }
+
+  // Right-click: sample the key's current color into the picker
+  function sampleColor(e, idx) {
+    e.preventDefault()
+    const color = $leds[idx]
+    if (color && color !== '#000000') pickerColor.set(color)
   }
 
   function continuePaint(idx) {
@@ -184,8 +191,9 @@
                 border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
                 color: {light ? '#000' : '#555'};
               "
-              on:mousedown={() => startPaint(idx)}
+              on:mousedown={(e) => startPaint(e, idx)}
               on:mouseenter={() => continuePaint(idx)}
+              on:contextmenu={(e) => sampleColor(e, idx)}
               title="{key.k}"
               aria-label="{key.k}"
             >{key.k}</button>
@@ -211,8 +219,9 @@
               border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
               color: {light ? '#000' : '#555'};
             "
-            on:mousedown={() => startPaint(idx)}
+            on:mousedown={(e) => startPaint(e, idx)}
             on:mouseenter={() => continuePaint(idx)}
+            on:contextmenu={(e) => sampleColor(e, idx)}
             title="{key.k}"
             aria-label="{key.k}"
           >{key.k}</button>
