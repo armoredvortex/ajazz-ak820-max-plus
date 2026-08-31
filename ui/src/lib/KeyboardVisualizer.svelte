@@ -16,6 +16,15 @@
     98: 'w-key-w',   // RCtrl
   }
 
+  // Nav cluster is a fixed 3-column grid (A, B, C) so keys align vertically
+  // exactly like a real keyboard:
+  //         Del      -> row0, col C
+  //         Home     -> row1, col C
+  //         PgUp     -> row2, col C
+  //         PgDn     -> row3, col C
+  //   Up    End      -> row4, col B / col C
+  // Left  Down Right -> row5, col A / col B / col C
+  // `null` = empty spacer slot, keeps the grid column aligned.
   const ROWS = [
     {
       main: [
@@ -23,9 +32,8 @@
         [{ k:'F1',i:14 },{ k:'F2',i:13 },{ k:'F3',i:12 },{ k:'F4',i:11 }],
         [{ k:'F5',i:10 },{ k:'F6',i:9  },{ k:'F7',i:8  },{ k:'F8',i:7  }],
         [{ k:'F9',i:6  },{ k:'F10',i:5 },{ k:'F11',i:4 },{ k:'F12',i:3 }],
-        [{ k:'Del',i:43 }],
       ],
-      nav: [{ k:'Home',i:31 },{ k:'PgUp',i:32 }],
+      nav: [null, null, { k:'Del',i:43 }],
     },
     {
       main: [[
@@ -34,7 +42,7 @@
         { k:'8',i:24 },{ k:'9',i:25 },{ k:'0',i:26 },{ k:'-',i:27 },
         { k:'=',i:28 },{ k:'⌫',i:29 },
       ]],
-      nav: [{ k:'PgDn',i:41 }],
+      nav: [null, null, { k:'Home',i:31 }],
     },
     {
       main: [[
@@ -43,7 +51,7 @@
         { k:'I',i:49 }, { k:'O',i:48 },{ k:'P',i:47 },{ k:'[',i:46 },
         { k:']',i:45 }, { k:'\\',i:44 },
       ]],
-      nav: [{ k:'End',i:42 }],
+      nav: [null, null, { k:'PgUp',i:32 }],
     },
     {
       main: [[
@@ -52,7 +60,7 @@
         { k:'K',i:66 },  { k:'L',i:67 },{ k:';',i:68 },{ k:"'",i:69 },
         { k:'↵',i:70 },
       ]],
-      nav: [],
+      nav: [null, null, { k:'PgDn',i:41 }],
     },
     {
       main: [[
@@ -60,7 +68,7 @@
         { k:'V',i:86 },    { k:'B',i:85 },{ k:'N',i:84 },{ k:'M',i:83 },
         { k:',',i:82 },    { k:'.',i:81 },{ k:'/',i:80 },{ k:'RShift',i:79 },
       ]],
-      nav: [{ k:'▲',i:78 }],
+      nav: [null, { k:'▲',i:78 }, { k:'End',i:42 }],
     },
     {
       main: [[
@@ -145,51 +153,32 @@
   }
 </script>
 
+<!--
+  Whole board is one CSS grid with 2 columns: "keys" and "nav".
+  Grid auto-sizes column 1 to the widest row's actual content (max-content),
+  so every row's nav column lands at the exact same x position — with only
+  the small natural gap a real keyboard has, not a flex-1 stretch to the
+  edge of whatever container this sits in.
+-->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div
-  class="select-none inline-block"
+  class="select-none inline-grid grid-cols-[max-content_max-content] gap-x-2 gap-y-1.5"
   on:mouseup={endPaint}
   on:mouseleave={endPaint}
 >
   {#each ROWS as row}
-    <div class="flex items-center gap-3 mb-1.5">
 
-      <div class="flex items-center gap-3 flex-1">
-        {#each row.main as segment}
-          <div class="flex items-center gap-1">
-            {#each segment as key}
-              {@const idx   = key.i}
-              {@const color = $leds[idx] ?? '#000000'}
-              {@const light = luminance(color) > 0.45}
-              <button
-                class="key flex items-center justify-center shrink-0
-                       text-[0.6rem] font-mono leading-none border
-                       h-key {WIDE[idx] ?? 'w-key'}"
-                style="
-                  background: {color};
-                  border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
-                  color: {light ? '#000' : '#555'};
-                "
-                on:mousedown={() => startPaint(idx)}
-                on:mouseenter={() => continuePaint(idx)}
-                title="{key.k}"
-                aria-label="{key.k}"
-              >{key.k}</button>
-            {/each}
-          </div>
-        {/each}
-      </div>
-
-      {#if row.nav.length > 0}
-        <div class="flex items-center gap-1 ml-2">
-          {#each row.nav as key}
+    <div class="flex items-center gap-3">
+      {#each row.main as segment}
+        <div class="flex items-center gap-1">
+          {#each segment as key}
             {@const idx   = key.i}
             {@const color = $leds[idx] ?? '#000000'}
             {@const light = luminance(color) > 0.45}
             <button
               class="key flex items-center justify-center shrink-0
                      text-[0.6rem] font-mono leading-none border
-                     w-key h-key"
+                     h-key {WIDE[idx] ?? 'w-key'}"
               style="
                 background: {color};
                 border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
@@ -202,11 +191,37 @@
             >{key.k}</button>
           {/each}
         </div>
-      {:else}
-        <div class="w-key ml-2 shrink-0"></div>
-      {/if}
-
+      {/each}
     </div>
+
+    <!-- Fixed 3-column nav grid: columns always line up across rows,
+         regardless of how many real keys a given row has. -->
+    <div class="flex items-center gap-1">
+      {#each row.nav as key}
+        {#if key}
+          {@const idx   = key.i}
+          {@const color = $leds[idx] ?? '#000000'}
+          {@const light = luminance(color) > 0.45}
+          <button
+            class="key flex items-center justify-center shrink-0
+                   text-[0.6rem] font-mono leading-none border
+                   w-key h-key"
+            style="
+              background: {color};
+              border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
+              color: {light ? '#000' : '#555'};
+            "
+            on:mousedown={() => startPaint(idx)}
+            on:mouseenter={() => continuePaint(idx)}
+            title="{key.k}"
+            aria-label="{key.k}"
+          >{key.k}</button>
+        {:else}
+          <div class="w-key h-key shrink-0"></div>
+        {/if}
+      {/each}
+    </div>
+
   {/each}
 </div>
 
