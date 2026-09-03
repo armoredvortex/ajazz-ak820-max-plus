@@ -9,7 +9,8 @@ Reverse-engineered from USB pcap captures and confirmed through live testing.
 | Field             | Value              |
 |-------------------|--------------------|
 | Vendor ID         | `0x1A2C`           |
-| Product ID        | `0x8FFF`           |
+| Product ID (USB wired)  | `0x8FFF`     |
+| Product ID (2.4 GHz dongle) | `0xA036` |
 | Target interface  | `0` (first HID interface) |
 | Linux device node | `/dev/hidraw*` (matched via `/sys/class/hidraw/`) |
 | Report length     | **64 bytes** (fixed, all packets) |

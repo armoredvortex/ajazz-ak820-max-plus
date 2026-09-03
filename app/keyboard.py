@@ -1,6 +1,8 @@
 """
-keyboard.py - KeyboardRGB controller for the Ajazz AK820 Max Plus (VID:PID 1a2c:8fff)
-Ported from test/keyboard_rgb.py with minor cleanups for the app backend.
+keyboard.py - KeyboardRGB controller for the Ajazz AK820 Max Plus
+Supports both connection modes:
+  USB wired:      1a2c:8fff
+  2.4 GHz dongle: 1a2c:a036
 """
 
 import glob
@@ -11,7 +13,9 @@ import select
 import time
 
 VID = 0x1A2C
-PID = 0x8FFF
+# Known PIDs — USB wired and 2.4 GHz dongle share the same protocol
+KNOWN_PIDS = (0x8FFF, 0xA036)
+PID = KNOWN_PIDS[0]   # kept for backwards compatibility
 TARGET_INTERFACE = 0
 NUM_LEDS = 108
 FRAME_BYTES = NUM_LEDS * 3  # 324 bytes
@@ -60,7 +64,11 @@ def _pkt(opcode: int, payload: bytes = b"") -> bytes:
     return body + bytes(REPORT_LEN - len(body))
 
 
-def find_hidraw_device(vid=VID, pid=PID, interface=TARGET_INTERFACE) -> str:
+def find_hidraw_device(vid=VID, pids=KNOWN_PIDS, interface=TARGET_INTERFACE) -> str:
+    """
+    Scan /sys/class/hidraw for any device matching vid and any pid in pids
+    on the given interface number. Tries PIDs in order; first match wins.
+    """
     candidates = []
     for hidraw_path in glob.glob("/sys/class/hidraw/hidraw*"):
         name = os.path.basename(hidraw_path)
@@ -84,7 +92,7 @@ def find_hidraw_device(vid=VID, pid=PID, interface=TARGET_INTERFACE) -> str:
             continue
         this_vid = int(parts[1], 16)
         this_pid = int(parts[2], 16)
-        if this_vid != vid or this_pid != pid:
+        if this_vid != vid or this_pid not in pids:
             continue
 
         iface_num = None
@@ -93,17 +101,23 @@ def find_hidraw_device(vid=VID, pid=PID, interface=TARGET_INTERFACE) -> str:
             if m:
                 iface_num = int(m.group(1))
                 break
-        candidates.append((f"/dev/{name}", iface_num))
+        candidates.append((f"/dev/{name}", iface_num, this_pid))
 
-    for path, iface_num in candidates:
+    # Prefer the requested interface; fall back to any match
+    for path, iface_num, pid in candidates:
         if iface_num == interface:
             return path
 
     if candidates:
         raise RuntimeError(
-            f"Found {vid:04x}:{pid:04x} but not on interface {interface}."
+            f"Found {vid:04x}:{{{','.join(f'{p:04x}' for p in pids)}}} "
+            f"but not on interface {interface}."
         )
-    raise RuntimeError(f"No hidraw device found for {vid:04x}:{pid:04x}.")
+    raise RuntimeError(
+        f"No hidraw device found for {vid:04x} with PIDs "
+        f"{', '.join(f'{p:04x}' for p in pids)}."
+    )
+
 
 
 class KeyboardRGB:

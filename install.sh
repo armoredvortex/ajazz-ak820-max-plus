@@ -53,14 +53,16 @@ cd "$ROOT"
 
 # ── 5. udev rule (hidraw permissions) ────────────────────────────────────
 UDEV_FILE="/etc/udev/rules.d/99-ajazz-ak820.rules"
-UDEV_RULE='SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1a2c", ATTRS{idProduct}=="8fff", TAG+="uaccess"'
+UDEV_RULE_USB='SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1a2c", ATTRS{idProduct}=="8fff", MODE="0660", GROUP="input"'
+UDEV_RULE_24G='SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1a2c", ATTRS{idProduct}=="a036", MODE="0660", GROUP="input"'
 
 if [ ! -f "$UDEV_FILE" ]; then
     blue "→ Installing udev rule for keyboard access…"
-    echo "$UDEV_RULE" | sudo tee "$UDEV_FILE" > /dev/null
+    printf '%s\n%s\n' "$UDEV_RULE_USB" "$UDEV_RULE_24G" | sudo tee "$UDEV_FILE" > /dev/null
     sudo udevadm control --reload-rules
     sudo udevadm trigger
-    green "  udev rule installed. Re-plug the keyboard if it was already connected."
+    sudo usermod -aG input "$USER"
+    green "  udev rule installed (USB + 2.4 GHz). Log out and back in for group membership to take effect."
 else
     green "  udev rule already present, skipping."
 fi
