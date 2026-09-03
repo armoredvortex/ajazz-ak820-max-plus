@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
-  import { Keyboard, Layers, Music, Save, Eraser, PaintBucket,
-           Check, AlertTriangle, Info, PlugZap, Unplug } from 'lucide-svelte'
+  import { Keyboard, Sparkles, Music2, Save, Eraser, PaintBucket,
+           Check, AlertTriangle, Info, Zap, ZapOff } from 'lucide-svelte'
 
   import KeyboardVisualizer from './lib/KeyboardVisualizer.svelte'
   import ModesPanel         from './lib/ModesPanel.svelte'
@@ -25,33 +25,15 @@
 
   onMount(async () => {
     await waitForPywebview()
-
-    try {
-      const r = await api('get_hardware_modes')
-      hardwareModes.set(r.modes)
-      hardwareColors.set(r.colors)
-    } catch(_) {}
-
-    try {
-      const r = await api('get_audio_devices')
-      audioDevices.set(r.devices)
-    } catch(_) {}
-
-    window.addEventListener('kb-connected', e => {
-      connected.set(true)
-      leds.set(e.detail.leds)
-    })
-
+    try { const r = await api('get_hardware_modes'); hardwareModes.set(r.modes); hardwareColors.set(r.colors) } catch(_) {}
+    try { const r = await api('get_audio_devices'); audioDevices.set(r.devices) } catch(_) {}
+    window.addEventListener('kb-connected', e => { connected.set(true); leds.set(e.detail.leds) })
     try {
       connecting.set(true)
       const res = await api('connect')
-      connected.set(true)
-      leds.set(res.leds)
-    } catch(e) {
-      statusError.set(e.message)
-    } finally {
-      connecting.set(false)
-    }
+      connected.set(true); leds.set(res.leds)
+    } catch(e) { statusError.set(e.message) }
+    finally { connecting.set(false) }
   })
 
   async function toggleConnect() {
@@ -68,121 +50,147 @@
   }
 
   const TABS = [
-    { id:'custom', label:'Per-Key',  icon:Keyboard },
-    { id:'modes',  label:'Effects',  icon:Layers   },
-    { id:'audio',  label:'Audio',    icon:Music    },
+    { id:'custom', label:'Per-Key',  icon:Keyboard  },
+    { id:'modes',  label:'Effects',  icon:Sparkles  },
+    { id:'audio',  label:'Audio',    icon:Music2    },
   ]
 
-  const TOAST_CLS = {
-    success: 'border-success/20 text-success',
-    error:   'border-danger/20  text-danger',
-    warn:    'border-warn/20    text-warn',
-    info:    'border-line       text-white/50',
+  const TOAST_ICON = { success:Check, error:AlertTriangle, warn:AlertTriangle, info:Info }
+  const TOAST_CLS  = {
+    success: 'text-success border-success/15',
+    error:   'text-danger  border-danger/15',
+    warn:    'text-warn    border-warn/15',
+    info:    'text-white/50 border-white/[0.06]',
   }
-  const TOAST_ICONS = { success:Check, error:AlertTriangle, warn:AlertTriangle, info:Info }
 </script>
 
-<div class="flex flex-col h-screen overflow-hidden bg-base text-white">
+<div class="flex h-screen overflow-hidden bg-black text-white">
 
-  <!-- ── Top bar ───────────────────────────────────────────────────── -->
-  <header class="flex items-center justify-between px-5 h-11 border-b border-line shrink-0">
-    <span class="text-xs font-medium tracking-tight text-white/80">AK820 RGB</span>
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside class="w-52 shrink-0 flex flex-col border-r border-white/[0.06] py-5">
 
-    <nav class="flex items-center gap-0.5">
+    <!-- Logo / title -->
+    <div class="px-5 mb-6">
+      <p class="text-[11px] font-semibold tracking-widest text-white/20 uppercase">AK820</p>
+      <p class="text-base font-semibold tracking-tight leading-tight mt-0.5">RGB Control</p>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex flex-col gap-0.5 px-2 flex-1">
       {#each TABS as tab}
         <button
-          class="px-3 py-1.5 text-xs rounded transition-colors duration-100
-                 {$activeTab === tab.id
-                   ? 'text-white bg-surface-2'
-                   : 'text-white/35 hover:text-white/70'}"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-100 text-left w-full group"
+          class:active-tab={$activeTab === tab.id}
+          class:inactive-tab={$activeTab !== tab.id}
           on:click={() => activeTab.set(tab.id)}
         >
-          {tab.label}
+          <svelte:component this={tab.icon} size={15}
+            class="{$activeTab === tab.id ? 'text-white' : 'text-white/30 group-hover:text-white/60'} transition-colors" />
+          <span>{tab.label}</span>
         </button>
       {/each}
     </nav>
 
-    <div class="flex items-center gap-3">
-      {#if $connecting}
-        <span class="text-2xs text-white/25 tracking-wide">connecting…</span>
-      {:else if $connected}
-        <span class="flex items-center gap-1.5 text-2xs text-success/70">
-          <span class="w-1 h-1 rounded-full bg-success/60"></span>connected
-        </span>
-      {:else}
-        <span class="flex items-center gap-1.5 text-2xs text-white/25">
-          <span class="w-1 h-1 rounded-full bg-white/20"></span>disconnected
-        </span>
-      {/if}
-      <button class="btn-ghost" on:click={toggleConnect} disabled={$connecting}>
-        {#if $connected}<Unplug size={12}/>{:else}<PlugZap size={12}/>{/if}
+    <!-- Connection status -->
+    <div class="px-3 mt-4">
+      <button
+        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+               border transition-all duration-150 group
+               {$connected
+                 ? 'border-success/20 bg-success/5 text-success/80 hover:bg-success/10'
+                 : 'border-white/[0.06] text-white/30 hover:text-white/60 hover:border-white/10'}"
+        on:click={toggleConnect}
+        disabled={$connecting}
+      >
+        {#if $connecting}
+          <span class="w-1.5 h-1.5 rounded-full bg-white/30 animate-pulse shrink-0"></span>
+          <span class="text-xs">Connecting…</span>
+        {:else if $connected}
+          <span class="w-1.5 h-1.5 rounded-full bg-success shrink-0 shadow-[0_0_6px_#22c55e]"></span>
+          <span class="text-xs font-medium flex-1">Connected</span>
+          <ZapOff size={12} class="opacity-0 group-hover:opacity-60 transition-opacity shrink-0"/>
+        {:else}
+          <span class="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0"></span>
+          <span class="text-xs flex-1">Disconnected</span>
+          <Zap size={12} class="opacity-0 group-hover:opacity-60 transition-opacity shrink-0"/>
+        {/if}
       </button>
     </div>
-  </header>
 
-  <!-- ── Content ───────────────────────────────────────────────────── -->
-  <main class="flex-1 overflow-hidden">
+  </aside>
+
+  <!-- ── Main content ─────────────────────────────────────────────── -->
+  <main class="flex-1 overflow-hidden flex flex-col min-w-0">
 
     <!-- Per-Key tab -->
     {#if $activeTab === 'custom'}
       <div class="flex flex-col h-full">
 
         <!-- Toolbar -->
-        <div class="flex items-center gap-2 px-5 h-11 border-b border-line shrink-0">
-          <!-- Color swatch -->
+        <div class="flex items-center gap-2 px-6 h-12 border-b border-white/[0.06] shrink-0">
+
+          <!-- Color swatch + hex -->
           <label class="flex items-center gap-2 cursor-pointer group" title="Pick color">
-            <div class="relative w-5 h-5 rounded-sm overflow-hidden border border-line
-                        group-hover:border-white/20 transition-colors"
-                 style="background:{$pickerColor}">
+            <div class="relative w-6 h-6 rounded overflow-hidden ring-1 ring-white/10
+                        group-hover:ring-white/25 transition-all shadow-[0_0_8px_var(--glow)]"
+                 style="background:{$pickerColor}; --glow:{$pickerColor}40">
               <input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                      bind:value={$pickerColor}/>
             </div>
-            <span class="font-mono text-2xs text-white/30 group-hover:text-white/60 transition-colors">
+            <span class="font-mono text-xs text-white/30 group-hover:text-white/70 transition-colors tracking-wide">
               {$pickerColor.toUpperCase()}
             </span>
           </label>
 
-          <div class="w-px h-4 bg-line"></div>
+          <div class="w-px h-4 bg-white/[0.06] mx-1"></div>
 
           <button class="btn-ghost" on:click={() => vizRef?.fillAll()}>
-            <PaintBucket size={11}/>Fill all
+            <PaintBucket size={12}/>Fill all
           </button>
-
           <button class="btn-ghost" on:click={() => vizRef?.clearAll()}>
-            <Eraser size={11}/>Clear
+            <Eraser size={12}/>Clear
           </button>
 
           <div class="flex-1"></div>
 
-          <button class="btn-primary" on:click={() => vizRef?.saveToHardware()} disabled={!$connected}>
-            <Save size={11}/>Save to KB
+          <span class="text-[10px] text-white/15 mr-2 hidden lg:block">
+            Left-click paint · Right-click sample
+          </span>
+
+          <button class="btn-primary gap-2" on:click={() => vizRef?.saveToHardware()} disabled={!$connected}>
+            <Save size={12}/>Save to keyboard
           </button>
         </div>
 
-        <!-- Keyboard -->
-        <div class="flex-1 overflow-auto flex items-center justify-center p-8">
+        <!-- Keyboard canvas -->
+        <div class="flex-1 overflow-auto flex items-center justify-center p-10">
           <KeyboardVisualizer bind:this={vizRef}/>
-        </div>
-
-        <!-- Hint -->
-        <div class="px-5 h-7 flex items-center border-t border-line">
-          <span class="text-2xs text-white/15">
-            Left-click to paint · Drag to paint multiple · Same color erases · Right-click to sample
-          </span>
         </div>
 
       </div>
 
     <!-- Effects tab -->
     {:else if $activeTab === 'modes'}
-      <div class="h-full overflow-y-auto px-6 py-6 max-w-2xl mx-auto">
-        <ModesPanel />
+      <div class="h-full overflow-y-auto">
+        <div class="max-w-2xl mx-auto px-8 py-8">
+          <div class="mb-6">
+            <h1 class="text-base font-semibold">Effects</h1>
+            <p class="text-xs text-white/30 mt-1">Changes apply instantly to the keyboard.</p>
+          </div>
+          <ModesPanel />
+        </div>
       </div>
 
     <!-- Audio tab -->
     {:else if $activeTab === 'audio'}
-      <div class="h-full overflow-y-auto px-6 py-6 max-w-xl mx-auto">
-        <AudioPanel />
+      <div class="h-full overflow-y-auto">
+        <div class="max-w-lg mx-auto px-8 py-8">
+          <div class="mb-6">
+            <h1 class="text-base font-semibold">Audio Reactive</h1>
+            <p class="text-xs text-white/30 mt-1">Drive the keyboard LEDs from live audio.</p>
+          </div>
+          <AudioPanel />
+        </div>
       </div>
     {/if}
 
@@ -190,13 +198,30 @@
 </div>
 
 <!-- ── Toasts ─────────────────────────────────────────────────────── -->
-<div class="fixed bottom-4 right-4 flex flex-col gap-1.5 z-50 pointer-events-none">
+<div class="fixed bottom-5 right-5 flex flex-col gap-2 z-50 pointer-events-none">
   {#each $toasts as t (t.id)}
-    {@const Icon = TOAST_ICONS[t.type] ?? Info}
-    <div class="flex items-center gap-2 px-3 py-2 rounded bg-surface-1 border text-xs
-                pointer-events-auto shadow-xl shadow-black/60 {TOAST_CLS[t.type] ?? TOAST_CLS.info}">
-      <svelte:component this={Icon} size={12}/>
+    {@const Icon = TOAST_ICON[t.type] ?? Info}
+    <div class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg
+                bg-[#0d0d0d] border text-xs font-medium
+                pointer-events-auto shadow-2xl shadow-black/80
+                {TOAST_CLS[t.type] ?? TOAST_CLS.info}">
+      <svelte:component this={Icon} size={13}/>
       {t.message}
     </div>
   {/each}
 </div>
+
+<style>
+  .active-tab {
+    background: rgba(255,255,255,0.07);
+    color: white;
+    font-weight: 500;
+  }
+  .inactive-tab {
+    color: rgba(255,255,255,0.35);
+  }
+  .inactive-tab:hover {
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.7);
+  }
+</style>

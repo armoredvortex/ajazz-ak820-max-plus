@@ -1,8 +1,6 @@
 <script>
   import { leds, pickerColor, connected, toast, api } from './store.js'
 
-  // Key width classes using the custom 'key-*' tokens from tailwind.config.js
-  // Default key = w-key h-key (~46px). Wide keys override width only.
   const WIDE = {
     29: 'w-key-w',   // BackSpace
     57: 'w-key-w',   // Tab
@@ -16,15 +14,6 @@
     98: 'w-key-w',   // RCtrl
   }
 
-  // Nav cluster is a fixed 3-column grid (A, B, C) so keys align vertically
-  // exactly like a real keyboard:
-  //         Del      -> row0, col C
-  //         Home     -> row1, col C
-  //         PgUp     -> row2, col C
-  //         PgDn     -> row3, col C
-  //   Up    End      -> row4, col B / col C
-  // Left  Down Right -> row5, col A / col B / col C
-  // `null` = empty spacer slot, keeps the grid column aligned.
   const ROWS = [
     {
       main: [
@@ -80,8 +69,7 @@
     },
   ]
 
-  // ── Paint state ───────────────────────────────────────────────────────
-  // paintMode: 'on' = painting color, 'off' = erasing, null = not dragging
+  // ── Paint ─────────────────────────────────────────────────────────────
   let paintMode = null
 
   function luminance(hex) {
@@ -91,16 +79,52 @@
     return 0.299*r + 0.587*g + 0.114*b
   }
 
-  // On mousedown: only paint on left-click (button 0); right-click is reserved for sample
-  function startPaint(e, idx) {
-    if (e.button !== 0) return
-    const current = $leds[idx]
-    paintMode = (current === $pickerColor) ? 'off' : 'on'
-    applyPaint(idx)
-    if ($connected) sendKey(idx)
+  // Darken a hex color for the bottom-edge shadow of the keycap bevel
+  function darken(hex, amount = 0.35) {
+    const r = Math.round(parseInt(hex.slice(1,3),16) * (1-amount))
+    const g = Math.round(parseInt(hex.slice(3,5),16) * (1-amount))
+    const b = Math.round(parseInt(hex.slice(5,7),16) * (1-amount))
+    return `rgb(${r},${g},${b})`
   }
 
-  // Right-click: sample the key's current color into the picker
+  // Lighten for the top-edge highlight
+  function lighten(hex, amount = 0.25) {
+    const r = Math.min(255, Math.round(parseInt(hex.slice(1,3),16) + 255 * amount))
+    const g = Math.min(255, Math.round(parseInt(hex.slice(3,5),16) + 255 * amount))
+    const b = Math.min(255, Math.round(parseInt(hex.slice(5,7),16) + 255 * amount))
+    return `rgb(${r},${g},${b})`
+  }
+
+  // Build the keycap box-shadow:
+  //   inset top highlight (bevel)
+  //   inset bottom shadow (depth)
+  //   drop shadow below key
+  function keyShadow(hex) {
+    if (hex === '#000000') {
+      return 'inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -2px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.6)'
+    }
+    return `inset 0 1px 0 ${lighten(hex)}, inset 0 -2px 0 ${darken(hex)}, 0 2px 6px rgba(0,0,0,0.5)`
+  }
+
+  // Glow for lit keys — soft ambient color bloom
+  function keyGlow(hex) {
+    if (hex === '#000000') return 'none'
+    return `0 0 8px ${hex}55, 0 0 2px ${hex}88`
+  }
+
+  function keyTextColor(lit, light) {
+    if (!lit)    return 'rgba(255,255,255,0.65)'
+    if (light)   return 'rgba(0,0,0,0.80)'
+    return              'rgba(255,255,255,0.90)'
+  }
+
+  function startPaint(e, idx) {
+    if (e.button !== 0) return
+    paintMode = ($leds[idx] === $pickerColor) ? 'off' : 'on'
+    applyPaint(idx)
+    if ($connected) scheduleSend()
+  }
+
   function sampleColor(e, idx) {
     e.preventDefault()
     const color = $leds[idx]
@@ -108,88 +132,107 @@
   }
 
   function continuePaint(idx) {
-    if (paintMode === null) return
-    const current = $leds[idx]
+    if (!paintMode) return
     const target = paintMode === 'on' ? $pickerColor : '#000000'
-    if (current === target) return  // skip if already correct
+    if ($leds[idx] === target) return
     applyPaint(idx)
-    if ($connected) sendKey(idx)
+    if ($connected) scheduleSend()
   }
 
   function endPaint() { paintMode = null }
 
   function applyPaint(idx) {
     const color = paintMode === 'on' ? $pickerColor : '#000000'
-    leds.update(l => { const n = [...l]; n[idx] = color; return n })
+    leds.update(l => { const n=[...l]; n[idx]=color; return n })
   }
 
-  // Debounced single-key send — batches rapid drag paints into one frame
   let _sendTimer = null
-  function sendKey(_idx) {
+  function scheduleSend() {
     clearTimeout(_sendTimer)
-    _sendTimer = setTimeout(() => pushFrame(), 80)
+    _sendTimer = setTimeout(pushFrame, 80)
   }
 
   async function pushFrame() {
     if (!$connected) return
     try { await api('set_custom_color', $leds) }
-    catch (e) { toast(e.message, 'error') }
+    catch(e) { toast(e.message,'error') }
   }
 
-  // ── Toolbar actions (exported for App.svelte) ─────────────────────────
   export async function fillAll() {
     if (!$connected) { toast('Keyboard not connected','warn'); return }
-    try {
-      const r = await api('set_all_color', $pickerColor)
-      leds.set(r.leds)
-    } catch (e) { toast(e.message,'error') }
+    try { const r = await api('set_all_color',$pickerColor); leds.set(r.leds) }
+    catch(e) { toast(e.message,'error') }
   }
 
   export async function clearAll() {
     if (!$connected) { toast('Keyboard not connected','warn'); return }
-    try {
-      const r = await api('turn_off')
-      leds.set(r.leds)
-    } catch (e) { toast(e.message,'error') }
+    try { const r = await api('turn_off'); leds.set(r.leds) }
+    catch(e) { toast(e.message,'error') }
   }
 
   export async function saveToHardware() {
     if (!$connected) { toast('Keyboard not connected','warn'); return }
     try { await api('save_to_hardware'); toast('Saved to keyboard','success') }
-    catch (e) { toast(e.message,'error') }
+    catch(e) { toast(e.message,'error') }
   }
 </script>
 
-<!--
-  Whole board is one CSS grid with 2 columns: "keys" and "nav".
-  Grid auto-sizes column 1 to the widest row's actual content (max-content),
-  so every row's nav column lands at the exact same x position — with only
-  the small natural gap a real keyboard has, not a flex-1 stretch to the
-  edge of whatever container this sits in.
--->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- Keyboard plate — dark slightly-lifted surface that frames the keys -->
 <div
-  class="select-none inline-grid grid-cols-[max-content_max-content] gap-x-2 gap-y-1.5"
+  class="select-none inline-block p-4 rounded-2xl keyboard-plate"
   on:mouseup={endPaint}
   on:mouseleave={endPaint}
 >
-  {#each ROWS as row}
+  <div class="inline-grid grid-cols-[max-content_max-content] gap-x-3 gap-y-1.5">
+    {#each ROWS as row, ri}
 
-    <div class="flex items-center gap-3">
-      {#each row.main as segment}
-        <div class="flex items-center gap-1">
-          {#each segment as key}
+      <!-- Main keys -->
+      <div class="flex items-center gap-3">
+        {#each row.main as segment, si}
+          <!-- Extra gap between F-key islands in row 0 -->
+          <div class="flex items-center gap-1.5" class:ml-1={ri === 0 && si > 0}>
+            {#each segment as key}
+              {@const idx   = key.i}
+              {@const color = $leds[idx] ?? '#000000'}
+              {@const light = luminance(color) > 0.5}
+              {@const lit   = color !== '#000000'}
+              <button
+                class="keycap flex items-center justify-center shrink-0 font-mono leading-none
+                       h-key {WIDE[idx] ?? 'w-key'}"
+                style="
+                  background: {color};
+                  color: {keyTextColor(lit, light)};
+                  box-shadow: {keyShadow(color)};
+                  filter: {lit ? `drop-shadow(0 0 5px ${color}66)` : 'none'};
+                "
+                on:mousedown={(e) => startPaint(e, idx)}
+                on:mouseenter={() => continuePaint(idx)}
+                on:contextmenu={(e) => sampleColor(e, idx)}
+                title="{key.k}"
+                aria-label="{key.k}"
+              >{key.k}</button>
+            {/each}
+          </div>
+        {/each}
+      </div>
+
+      <!-- Nav cluster -->
+      <div class="flex items-center gap-1.5">
+        {#each row.nav as key}
+          {#if key}
             {@const idx   = key.i}
             {@const color = $leds[idx] ?? '#000000'}
-            {@const light = luminance(color) > 0.45}
+            {@const light = luminance(color) > 0.5}
+            {@const lit   = color !== '#000000'}
             <button
-              class="key flex items-center justify-center shrink-0
-                     text-[0.6rem] font-mono leading-none border
-                     h-key {WIDE[idx] ?? 'w-key'}"
+              class="keycap flex items-center justify-center shrink-0 font-mono leading-none
+                     w-key h-key"
               style="
                 background: {color};
-                border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
-                color: {light ? '#000' : '#555'};
+                color: {keyTextColor(lit, light)};
+                box-shadow: {keyShadow(color)};
+                filter: {lit ? `drop-shadow(0 0 5px ${color}66)` : 'none'};
               "
               on:mousedown={(e) => startPaint(e, idx)}
               on:mouseenter={() => continuePaint(idx)}
@@ -197,50 +240,53 @@
               title="{key.k}"
               aria-label="{key.k}"
             >{key.k}</button>
-          {/each}
-        </div>
-      {/each}
-    </div>
+          {:else}
+            <div class="w-key h-key shrink-0"></div>
+          {/if}
+        {/each}
+      </div>
 
-    <!-- Fixed 3-column nav grid: columns always line up across rows,
-         regardless of how many real keys a given row has. -->
-    <div class="flex items-center gap-1">
-      {#each row.nav as key}
-        {#if key}
-          {@const idx   = key.i}
-          {@const color = $leds[idx] ?? '#000000'}
-          {@const light = luminance(color) > 0.45}
-          <button
-            class="key flex items-center justify-center shrink-0
-                   text-[0.6rem] font-mono leading-none border
-                   w-key h-key"
-            style="
-              background: {color};
-              border-color: {color === '#000000' ? '#1f1f1f' : 'transparent'};
-              color: {light ? '#000' : '#555'};
-            "
-            on:mousedown={(e) => startPaint(e, idx)}
-            on:mouseenter={() => continuePaint(idx)}
-            on:contextmenu={(e) => sampleColor(e, idx)}
-            title="{key.k}"
-            aria-label="{key.k}"
-          >{key.k}</button>
-        {:else}
-          <div class="w-key h-key shrink-0"></div>
-        {/if}
-      {/each}
-    </div>
-
-  {/each}
+    {/each}
+  </div>
 </div>
 
 <style>
-  .key {
+  .keyboard-plate {
+    background: #0d0d0d;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.05),
+      0 8px 32px rgba(0,0,0,0.7),
+      0 2px 8px rgba(0,0,0,0.5);
+  }
+
+  .keycap {
     cursor: crosshair;
     user-select: none;
-    transition: filter 0.06s;
-    border-radius: 3px;
+    border-radius: 5px;
+    font-size: 0.58rem;
+    /* Smooth the glow transition when a key is painted */
+    transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease;
+    /* Slight key top surface — gives it a physical feel */
+    position: relative;
   }
-  .key:hover { filter: brightness(1.25); }
-  .key:active { transform: scale(0.92); }
+
+  /* Top-surface inset — the actual keycap face sits slightly inset */
+  .keycap::after {
+    content: '';
+    position: absolute;
+    inset: 1px 1px 3px 1px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.03);
+    pointer-events: none;
+  }
+
+  .keycap:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.2) !important;
+  }
+
+  .keycap:active {
+    transform: translateY(1px) scale(0.96);
+    transition: transform 0.04s ease;
+  }
 </style>

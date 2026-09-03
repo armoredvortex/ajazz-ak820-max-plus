@@ -12,74 +12,76 @@
     background: #000;
     color: #fff;
     font-family: 'Inter', system-ui, sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  ::-webkit-scrollbar            { width: 4px; height: 4px; }
+  ::-webkit-scrollbar            { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track      { background: transparent; }
-  ::-webkit-scrollbar-thumb      { background: #2a2a2a; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb      { background: #222; border-radius: 2px; }
   ::-webkit-scrollbar-thumb:hover{ background: #333; }
 
+  /* ── Range slider — filled track via gradient trick ── */
   input[type='range'] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 2px;
-    background: #1f1f1f;
-    border-radius: 1px;
+    height: 3px;
+    border-radius: 2px;
     outline: none;
     cursor: pointer;
+    /* filled portion set inline via JS/Svelte style binding */
+    background: linear-gradient(to right, #fff var(--pct, 0%), #222 var(--pct, 0%));
   }
   input[type='range']::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
     background: #fff;
-    border: none;
+    border: 2px solid #000;
+    box-shadow: 0 0 0 1px #444;
     cursor: pointer;
-    transition: transform 0.1s;
+    transition: box-shadow 0.1s, transform 0.1s;
   }
   input[type='range']::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.12);
+    transform: scale(1.15);
   }
 
   select {
     -webkit-appearance: none;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23444' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
   }
 }
 
 @layer components {
-  /* ── Buttons ─────────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-           rounded transition-all duration-100 select-none cursor-pointer
-           disabled:opacity-30 disabled:pointer-events-none;
+           rounded-md transition-all duration-100 select-none cursor-pointer
+           disabled:opacity-25 disabled:pointer-events-none whitespace-nowrap;
   }
   .btn-primary {
-    @apply btn bg-white text-black hover:bg-white/90 active:scale-[0.97];
+    @apply btn bg-white text-black hover:bg-white/90 active:scale-[0.96];
   }
   .btn-ghost {
-    @apply btn text-white/50 hover:text-white hover:bg-surface-2 active:scale-[0.97];
+    @apply btn text-white/40 hover:text-white hover:bg-white/[0.06] active:scale-[0.96];
   }
   .btn-danger {
-    @apply btn text-danger hover:bg-danger/10 active:scale-[0.97];
+    @apply btn text-danger/80 hover:text-danger hover:bg-danger/10 active:scale-[0.96];
   }
-
-  /* ── Section label ───────────────────────────────────────── */
   .sect-label {
-    @apply text-[10px] font-medium text-white/30 uppercase tracking-widest;
+    @apply text-[10px] font-semibold text-white/25 uppercase tracking-[0.12em];
   }
+  .divider { @apply border-t border-white/[0.06]; }
 
-  /* ── Divider ─────────────────────────────────────────────── */
-  .divider {
-    @apply border-t border-line;
+  /* Card used in Effects + Audio panels */
+  .panel-card {
+    @apply bg-white/[0.03] border border-white/[0.06] rounded-xl p-5;
   }
 }

@@ -1,11 +1,10 @@
 <script>
-  import { Music, Mic, Square, RefreshCw } from 'lucide-svelte'
+  import { Music2, Mic, Square, RefreshCw, Radio } from 'lucide-svelte'
   import {
     connected, audioDevices, audioRunning, audioMode,
     audioDeviceId, audioConfig, toast, api
   } from './store.js'
 
-  // Push config changes live to the backend while audio is running
   let _cfgTimer = null
   $: if ($audioConfig && $audioRunning) {
     clearTimeout(_cfgTimer)
@@ -13,8 +12,7 @@
   }
 
   async function pushConfig() {
-    try { await api('configure_audio', $audioConfig) }
-    catch(_) {}
+    try { await api('configure_audio', $audioConfig) } catch(_) {}
   }
 
   async function refreshDevices() {
@@ -44,76 +42,90 @@
     return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]
   }
 
+  function pct(val, min, max) {
+    return ((val - min) / (max - min) * 100).toFixed(1) + '%'
+  }
+
   const BANDS = [
-    { key:'bass_sensitivity',   label:'Bass',   color_key:'bass_color'   },
-    { key:'mid_sensitivity',    label:'Mid',    color_key:'mid_color'    },
-    { key:'treble_sensitivity', label:'Treble', color_key:'treble_color' },
+    { key:'bass_sensitivity',   label:'Bass',   color_key:'bass_color',   range:[10,600] },
+    { key:'mid_sensitivity',    label:'Mid',    color_key:'mid_color',    range:[10,600] },
+    { key:'treble_sensitivity', label:'Treble', color_key:'treble_color', range:[10,600] },
   ]
 </script>
 
-<div class="space-y-8">
+<div class="space-y-5">
 
-  <!-- Mode -->
-  <div>
-    <p class="sect-label mb-3">Mode</p>
-    <div class="flex gap-px bg-line border border-line rounded overflow-hidden w-fit">
-      {#each [{id:'volume',label:'Volume',icon:Music},{id:'spectrum',label:'Spectrum',icon:Mic}] as m}
+  <!-- Mode + status bar -->
+  <div class="panel-card">
+    <div class="flex items-center justify-between mb-4">
+      <p class="sect-label">Mode</p>
+      {#if $audioRunning}
+        <span class="flex items-center gap-1.5 text-[10px] font-semibold text-success tracking-wide uppercase">
+          <span class="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_6px_#22c55e] animate-pulse"></span>
+          Live
+        </span>
+      {/if}
+    </div>
+
+    <div class="grid grid-cols-2 gap-1.5 mb-4">
+      {#each [
+        {id:'volume',   label:'Volume',   icon:Music2, desc:'Brightness tracks volume'},
+        {id:'spectrum', label:'Spectrum', icon:Mic,    desc:'Bass / Mid / Treble zones'},
+      ] as m}
         <button
-          class="flex items-center gap-2 px-4 py-1.5 text-xs transition-colors duration-75
+          class="flex flex-col gap-1.5 p-3 rounded-lg border text-left transition-all duration-100
                  {$audioMode === m.id
-                   ? 'bg-white text-black font-medium'
-                   : 'bg-surface-1 text-white/40 hover:text-white hover:bg-surface-2'}"
+                   ? 'bg-white/[0.07] border-white/20 text-white'
+                   : 'border-white/[0.06] text-white/40 hover:border-white/10 hover:text-white/70 hover:bg-white/[0.03]'}"
           on:click={() => audioMode.set(m.id)}
           disabled={$audioRunning}
         >
-          <svelte:component this={m.icon} size={12}/>
-          {m.label}
+          <svelte:component this={m.icon} size={14}
+            class="{$audioMode === m.id ? 'text-white' : 'text-white/30'}"/>
+          <span class="text-xs font-medium">{m.label}</span>
+          <span class="text-[10px] text-white/30 leading-tight">{m.desc}</span>
         </button>
       {/each}
     </div>
-    <p class="mt-2 text-2xs text-white/20">
-      {$audioMode === 'volume'
-        ? 'Keyboard brightness tracks overall volume.'
-        : 'Bass / Mid / Treble drive separate LED zones.'}
-    </p>
-  </div>
 
-  <!-- Device -->
-  <div>
-    <div class="flex items-center justify-between mb-3">
-      <p class="sect-label">Input device</p>
-      <button class="btn-ghost py-1 px-2" on:click={refreshDevices} disabled={$audioRunning}>
-        <RefreshCw size={11}/>
+    <!-- Device selector -->
+    <div class="flex items-center gap-2 mb-2">
+      <select
+        class="flex-1 bg-black/40 border border-white/[0.08] rounded-md px-3 py-2
+               text-xs text-white/60 focus:outline-none focus:border-white/20
+               disabled:opacity-30 transition-colors"
+        bind:value={$audioDeviceId}
+        disabled={$audioRunning}
+      >
+        <option value={null}>System default</option>
+        {#each $audioDevices as d}
+          <option value={d.id}>{d.name}</option>
+        {/each}
+      </select>
+      <button class="btn-ghost p-2 shrink-0" on:click={refreshDevices} disabled={$audioRunning}
+              title="Refresh devices">
+        <RefreshCw size={12}/>
       </button>
     </div>
-    <select
-      class="w-full bg-surface-1 border border-line rounded px-3 py-2 text-xs text-white/70
-             focus:outline-none focus:border-white/20 disabled:opacity-30 transition-colors"
-      bind:value={$audioDeviceId}
-      disabled={$audioRunning}
-    >
-      <option value={null}>System default</option>
-      {#each $audioDevices as d}
-        <option value={d.id}>{d.name}</option>
-      {/each}
-    </select>
-    <p class="mt-1.5 text-2xs text-white/20">Use a Monitor source in pavucontrol for music reactive.</p>
+    <p class="text-[10px] text-white/20">Select a Monitor / Loopback source for music reactive.</p>
   </div>
 
   <!-- Volume settings -->
   {#if $audioMode === 'volume'}
-    <div class="space-y-6">
+    <div class="panel-card space-y-5">
+      <p class="sect-label">Volume settings</p>
       {#each [
-        { key:'sensitivity',       label:'Sensitivity', min:0.5, max:20,   step:0.5,  fmt: v => v.toFixed(1) },
-        { key:'noise_gate',        label:'Noise gate',  min:0,   max:0.1,  step:0.001,fmt: v => v.toFixed(3) },
-        { key:'smoothing_falloff', label:'Smoothing',   min:0.3, max:0.99, step:0.01, fmt: v => v.toFixed(2) },
+        { key:'sensitivity',       label:'Sensitivity', min:0.5, max:20,   step:0.5,  fmt: v=>v.toFixed(1) },
+        { key:'noise_gate',        label:'Noise gate',  min:0,   max:0.1,  step:0.001,fmt: v=>v.toFixed(3) },
+        { key:'smoothing_falloff', label:'Smoothing',   min:0.3, max:0.99, step:0.01, fmt: v=>v.toFixed(2) },
       ] as ctrl}
         <div>
-          <div class="flex justify-between items-baseline mb-3">
-            <span class="sect-label">{ctrl.label}</span>
-            <span class="font-mono text-2xs text-white/35">{ctrl.fmt($audioConfig[ctrl.key])}</span>
+          <div class="flex justify-between items-baseline mb-2.5">
+            <span class="text-xs text-white/60">{ctrl.label}</span>
+            <span class="font-mono text-xs text-white/35">{ctrl.fmt($audioConfig[ctrl.key])}</span>
           </div>
           <input type="range" min={ctrl.min} max={ctrl.max} step={ctrl.step}
+                 style="--pct:{pct($audioConfig[ctrl.key],ctrl.min,ctrl.max)}"
                  bind:value={$audioConfig[ctrl.key]}/>
         </div>
       {/each}
@@ -122,52 +134,50 @@
 
   <!-- Spectrum settings -->
   {#if $audioMode === 'spectrum'}
-    <div class="space-y-6">
+    <div class="panel-card space-y-5">
+      <p class="sect-label">Frequency bands</p>
       {#each BANDS as band}
         <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="sect-label">{band.label}</span>
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-2xs text-white/35">{$audioConfig[band.key]}</span>
-              <label class="relative w-4 h-4 rounded-sm overflow-hidden border border-line
-                            hover:border-white/20 cursor-pointer transition-colors"
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-xs text-white/60">{band.label} sensitivity</span>
+            <div class="flex items-center gap-2.5">
+              <span class="font-mono text-xs text-white/35">{$audioConfig[band.key]}</span>
+              <label class="relative w-5 h-5 rounded-md overflow-hidden cursor-pointer
+                            ring-1 ring-white/10 hover:ring-white/25 transition-all"
                      style="background:{rgbToHex($audioConfig[band.color_key])}">
                 <input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                        value={rgbToHex($audioConfig[band.color_key])}
-                       on:input={e => audioConfig.update(c => ({...c, [band.color_key]: hexToRgb(e.target.value)}))}/>
+                       on:input={e => audioConfig.update(c => ({...c,[band.color_key]:hexToRgb(e.target.value)}))}/>
               </label>
             </div>
           </div>
-          <input type="range" min="10" max="600" step="10"
+          <input type="range" min={band.range[0]} max={band.range[1]} step="10"
+                 style="--pct:{pct($audioConfig[band.key],band.range[0],band.range[1])}"
                  value={$audioConfig[band.key]}
-                 on:input={e => audioConfig.update(c => ({...c, [band.key]: +e.target.value}))}/>
+                 on:input={e => audioConfig.update(c => ({...c,[band.key]:+e.target.value}))}/>
         </div>
       {/each}
-      <div>
-        <div class="flex justify-between items-baseline mb-3">
-          <span class="sect-label">Smoothing</span>
-          <span class="font-mono text-2xs text-white/35">{$audioConfig.smoothing_falloff.toFixed(2)}</span>
+      <div class="divider pt-1">
+        <div class="flex justify-between items-baseline mb-2.5 pt-4">
+          <span class="text-xs text-white/60">Smoothing</span>
+          <span class="font-mono text-xs text-white/35">{$audioConfig.smoothing_falloff.toFixed(2)}</span>
         </div>
-        <input type="range" min="0.3" max="0.99" step="0.01" bind:value={$audioConfig.smoothing_falloff}/>
+        <input type="range" min="0.3" max="0.99" step="0.01"
+               style="--pct:{pct($audioConfig.smoothing_falloff,0.3,0.99)}"
+               bind:value={$audioConfig.smoothing_falloff}/>
       </div>
     </div>
   {/if}
 
-  <div class="divider"></div>
-
+  <!-- Start / Stop -->
   {#if $audioRunning}
-    <div class="flex items-center justify-between">
-      <span class="flex items-center gap-2 text-xs text-white/40">
-        <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
-        Live — adjust sliders above in real time
-      </span>
-      <button class="btn-danger" on:click={stopAudio}>
-        <Square size={11}/>Stop
-      </button>
-    </div>
+    <button class="btn-danger w-full justify-center py-2.5 text-sm" on:click={stopAudio}>
+      <Square size={13}/>Stop reactive
+    </button>
   {:else}
-    <button class="btn-primary w-full justify-center py-2" on:click={startAudio} disabled={!$connected}>
-      Start reactive
+    <button class="btn-primary w-full justify-center py-2.5 text-sm"
+            on:click={startAudio} disabled={!$connected}>
+      <Radio size={13}/>Start reactive
     </button>
   {/if}
 
