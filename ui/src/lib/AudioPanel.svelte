@@ -55,7 +55,7 @@
 
 <div class="space-y-5">
 
-  <!-- Mode + status bar -->
+  <!-- Mode card -->
   <div class="panel-card">
     <div class="flex items-center justify-between mb-4">
       <p class="sect-label">Mode</p>
@@ -75,15 +75,15 @@
         <button
           class="flex flex-col gap-1.5 p-3 rounded-lg border text-left transition-all duration-100
                  {$audioMode === m.id
-                   ? 'bg-white/[0.07] border-white/20 text-white'
-                   : 'border-white/[0.06] text-white/40 hover:border-white/10 hover:text-white/70 hover:bg-white/[0.03]'}"
+                   ? 'bg-white/[0.09] border-white/25 text-white'
+                   : 'border-white/10 text-white/65 hover:border-white/20 hover:text-white/90 hover:bg-white/[0.05]'}"
           on:click={() => audioMode.set(m.id)}
           disabled={$audioRunning}
         >
           <svelte:component this={m.icon} size={14}
-            class="{$audioMode === m.id ? 'text-white' : 'text-white/30'}"/>
+            class="{$audioMode === m.id ? 'text-white' : 'text-white/50'}"/>
           <span class="text-xs font-medium">{m.label}</span>
-          <span class="text-[10px] text-white/30 leading-tight">{m.desc}</span>
+          <span class="text-[10px] text-white/50 leading-tight">{m.desc}</span>
         </button>
       {/each}
     </div>
@@ -91,9 +91,9 @@
     <!-- Device selector -->
     <div class="flex items-center gap-2 mb-2">
       <select
-        class="flex-1 bg-black/40 border border-white/[0.08] rounded-md px-3 py-2
-               text-xs text-white/60 focus:outline-none focus:border-white/20
-               disabled:opacity-30 transition-colors"
+        class="flex-1 bg-white/[0.04] border border-white/10 rounded-md px-3 py-2
+               text-xs text-white/80 focus:outline-none focus:border-white/25
+               disabled:opacity-40 transition-colors"
         bind:value={$audioDeviceId}
         disabled={$audioRunning}
       >
@@ -102,12 +102,12 @@
           <option value={d.id}>{d.name}</option>
         {/each}
       </select>
-      <button class="btn-ghost p-2 shrink-0" on:click={refreshDevices} disabled={$audioRunning}
-              title="Refresh devices">
+      <button class="btn-ghost p-2 shrink-0" on:click={refreshDevices}
+              disabled={$audioRunning} title="Refresh devices">
         <RefreshCw size={12}/>
       </button>
     </div>
-    <p class="text-[10px] text-white/20">Select a Monitor / Loopback source for music reactive.</p>
+    <p class="text-[11px] text-white/45">Select a Monitor / Loopback source for music reactive.</p>
   </div>
 
   <!-- Volume settings -->
@@ -120,9 +120,9 @@
         { key:'smoothing_falloff', label:'Smoothing',   min:0.3, max:0.99, step:0.01, fmt: v=>v.toFixed(2) },
       ] as ctrl}
         <div>
-          <div class="flex justify-between items-baseline mb-2.5">
-            <span class="text-xs text-white/60">{ctrl.label}</span>
-            <span class="font-mono text-xs text-white/35">{ctrl.fmt($audioConfig[ctrl.key])}</span>
+          <div class="flex justify-between items-baseline mb-3">
+            <span class="text-xs text-white/80">{ctrl.label}</span>
+            <span class="font-mono text-xs text-white/60">{ctrl.fmt($audioConfig[ctrl.key])}</span>
           </div>
           <input type="range" min={ctrl.min} max={ctrl.max} step={ctrl.step}
                  style="--pct:{pct($audioConfig[ctrl.key],ctrl.min,ctrl.max)}"
@@ -138,12 +138,12 @@
       <p class="sect-label">Frequency bands</p>
       {#each BANDS as band}
         <div>
-          <div class="flex items-center justify-between mb-2.5">
-            <span class="text-xs text-white/60">{band.label} sensitivity</span>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-white/80">{band.label} sensitivity</span>
             <div class="flex items-center gap-2.5">
-              <span class="font-mono text-xs text-white/35">{$audioConfig[band.key]}</span>
+              <span class="font-mono text-xs text-white/60">{$audioConfig[band.key]}</span>
               <label class="relative w-5 h-5 rounded-md overflow-hidden cursor-pointer
-                            ring-1 ring-white/10 hover:ring-white/25 transition-all"
+                            ring-1 ring-white/15 hover:ring-white/30 transition-all"
                      style="background:{rgbToHex($audioConfig[band.color_key])}">
                 <input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                        value={rgbToHex($audioConfig[band.color_key])}
@@ -158,9 +158,9 @@
         </div>
       {/each}
       <div class="divider pt-1">
-        <div class="flex justify-between items-baseline mb-2.5 pt-4">
-          <span class="text-xs text-white/60">Smoothing</span>
-          <span class="font-mono text-xs text-white/35">{$audioConfig.smoothing_falloff.toFixed(2)}</span>
+        <div class="flex justify-between items-baseline mb-3 pt-4">
+          <span class="text-xs text-white/80">Smoothing</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.smoothing_falloff.toFixed(2)}</span>
         </div>
         <input type="range" min="0.3" max="0.99" step="0.01"
                style="--pct:{pct($audioConfig.smoothing_falloff,0.3,0.99)}"
