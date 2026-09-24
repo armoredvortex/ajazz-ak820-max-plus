@@ -1,10 +1,21 @@
 <script>
-  import { Music2, Mic, Square, RefreshCw, Radio } from 'lucide-svelte'
+  import { onMount } from 'svelte'
+  import { Music2, Mic, Square, RefreshCw, Radio, ScanLine } from 'lucide-svelte'
   import {
     connected, audioDevices, audioRunning, audioMode,
-    audioDeviceId, audioConfig, toast, api
+    audioDeviceId, audioConfig, calibrating, calibrationDone,
+    toast, api
   } from './store.js'
 
+  // ── Load config from backend on mount ─────────────────────────────
+  onMount(async () => {
+    try {
+      const r = await api('get_audio_config')
+      audioConfig.set(r.config)
+    } catch(_) {}
+  })
+
+  // ── Push config changes live while running ─────────────────────────
   let _cfgTimer = null
   $: if ($audioConfig && $audioRunning) {
     clearTimeout(_cfgTimer)
@@ -15,47 +26,75 @@
     try { await api('configure_audio', $audioConfig) } catch(_) {}
   }
 
+  // ── Device list ────────────────────────────────────────────────────
   async function refreshDevices() {
     try { const r = await api('get_audio_devices'); audioDevices.set(r.devices) }
-    catch(e) { toast(e.message,'error') }
+    catch(e) { toast(e.message, 'error') }
   }
 
+  // ── Start / stop ───────────────────────────────────────────────────
   async function startAudio() {
-    if (!$connected) { toast('Keyboard not connected','warn'); return }
+    if (!$connected) { toast('Keyboard not connected', 'warn'); return }
     try {
       await api('configure_audio', $audioConfig)
       await api('start_audio', $audioMode, $audioDeviceId)
       audioRunning.set(true)
-    } catch(e) { toast(e.message,'error') }
+    } catch(e) { toast(e.message, 'error') }
   }
 
   async function stopAudio() {
     try { await api('stop_audio'); audioRunning.set(false) }
-    catch(e) { toast(e.message,'error') }
+    catch(e) { toast(e.message, 'error') }
   }
 
-  function rgbToHex([r,g,b]) {
-    return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')
-  }
-  function hexToRgb(hex) {
-    const h = hex.replace('#','')
-    return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]
+  // ── Calibration ────────────────────────────────────────────────────
+  let _calibPollTimer = null
+
+  async function runCalibration() {
+    if ($audioRunning) { toast('Stop reactive first', 'warn'); return }
+    try {
+      await api('calibrate_audio')
+      calibrating.set(true)
+      calibrationDone.set(false)
+      toast('Calibrating — keep the room silent…', 'info', 5000)
+      _pollCalibration()
+    } catch(e) { toast(e.message, 'error') }
   }
 
+  function _pollCalibration() {
+    _calibPollTimer = setTimeout(async () => {
+      try {
+        const r = await api('get_calibration_status')
+        if (r.done) {
+          calibrating.set(false)
+          calibrationDone.set(true)
+          if (r.result?.ok) {
+            // Refresh config from backend so noise_floor values are current
+            const cfg = await api('get_audio_config')
+            audioConfig.set(cfg.config)
+            toast('Calibration complete', 'success')
+          } else {
+            toast(r.result?.error ?? 'Calibration failed', 'error')
+          }
+        } else {
+          _pollCalibration()  // keep polling
+        }
+      } catch(e) {
+        calibrating.set(false)
+        toast(e.message, 'error')
+      }
+    }, 400)
+  }
+
+  // ── Slider fill helper ─────────────────────────────────────────────
   function pct(val, min, max) {
     return ((val - min) / (max - min) * 100).toFixed(1) + '%'
   }
-
-  const BANDS = [
-    { key:'bass_sensitivity',   label:'Bass',   color_key:'bass_color',   range:[10,600] },
-    { key:'mid_sensitivity',    label:'Mid',    color_key:'mid_color',    range:[10,600] },
-    { key:'treble_sensitivity', label:'Treble', color_key:'treble_color', range:[10,600] },
-  ]
 </script>
 
 <div class="space-y-5">
 
-  <!-- Mode card -->
+  <!-- ── Mode + device card ─────────────────────────────────────────── -->
   <div class="panel-card">
     <div class="flex items-center justify-between mb-4">
       <p class="sect-label">Mode</p>
@@ -69,8 +108,8 @@
 
     <div class="grid grid-cols-2 gap-1.5 mb-4">
       {#each [
-        {id:'volume',   label:'Volume',   icon:Music2, desc:'Brightness tracks volume'},
-        {id:'spectrum', label:'Spectrum', icon:Mic,    desc:'Bass / Mid / Treble zones'},
+        { id:'spectrum', label:'Spectrum',    icon:Mic,    desc:'Log-frequency bar per column' },
+        { id:'volume',   label:'Volume',      icon:Music2, desc:'Brightness tracks RMS volume'  },
       ] as m}
         <button
           class="flex flex-col gap-1.5 p-3 rounded-lg border text-left transition-all duration-100
@@ -110,75 +149,225 @@
     <p class="text-[11px] text-white/45">Select a Monitor / Loopback source for music reactive.</p>
   </div>
 
-  <!-- Volume settings -->
-  {#if $audioMode === 'volume'}
-    <div class="panel-card space-y-5">
-      <p class="sect-label">Volume settings</p>
-      {#each [
-        { key:'sensitivity',       label:'Sensitivity', min:0.5, max:20,   step:0.5,  fmt: v=>v.toFixed(1) },
-        { key:'noise_gate',        label:'Noise gate',  min:0,   max:0.1,  step:0.001,fmt: v=>v.toFixed(3) },
-        { key:'smoothing_falloff', label:'Smoothing',   min:0.3, max:0.99, step:0.01, fmt: v=>v.toFixed(2) },
-      ] as ctrl}
-        <div>
-          <div class="flex justify-between items-baseline mb-3">
-            <span class="text-xs text-white/80">{ctrl.label}</span>
-            <span class="font-mono text-xs text-white/60">{ctrl.fmt($audioConfig[ctrl.key])}</span>
-          </div>
-          <input type="range" min={ctrl.min} max={ctrl.max} step={ctrl.step}
-                 style="--pct:{pct($audioConfig[ctrl.key],ctrl.min,ctrl.max)}"
-                 bind:value={$audioConfig[ctrl.key]}/>
-        </div>
-      {/each}
+  <!-- ── Calibration card ───────────────────────────────────────────── -->
+  <div class="panel-card">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <p class="sect-label mb-1">Noise floor calibration</p>
+        <p class="text-[11px] text-white/50 leading-relaxed">
+          Measures ~2.5 s of silence to set per-band noise floors.
+          Run once in a quiet room before first use.
+          {#if $calibrationDone}
+            <span class="text-success ml-1">✓ Calibrated</span>
+          {/if}
+        </p>
+      </div>
+      <button
+        class="btn-ghost shrink-0 gap-2 {$calibrating ? 'opacity-50 pointer-events-none' : ''}"
+        on:click={runCalibration}
+        disabled={$audioRunning || $calibrating}
+      >
+        <ScanLine size={12}/>
+        {$calibrating ? 'Running…' : 'Calibrate'}
+      </button>
     </div>
-  {/if}
 
-  <!-- Spectrum settings -->
+    {#if $calibrating}
+      <div class="mt-3 h-1 rounded-full bg-white/10 overflow-hidden">
+        <div class="h-full bg-white/60 rounded-full animate-calibrate-bar"></div>
+      </div>
+    {/if}
+  </div>
+
+  <!-- ── Spectrum settings ──────────────────────────────────────────── -->
   {#if $audioMode === 'spectrum'}
     <div class="panel-card space-y-5">
-      <p class="sect-label">Frequency bands</p>
-      {#each BANDS as band}
+      <p class="sect-label">Spectrum</p>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Attack</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.attack.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.1" max="1.0" step="0.01"
+               style="--pct:{pct($audioConfig.attack,0.1,1.0)}"
+               bind:value={$audioConfig.attack}/>
+        <p class="text-[10px] text-white/35 mt-1">Higher = faster rise (more snappy)</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Release</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.release.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.01" max="0.4" step="0.01"
+               style="--pct:{pct($audioConfig.release,0.01,0.4)}"
+               bind:value={$audioConfig.release}/>
+        <p class="text-[10px] text-white/35 mt-1">Lower = longer tail (less strobing)</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">AGC decay</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.agc_decay.toFixed(3)}</span>
+        </div>
+        <input type="range" min="0.990" max="0.9999" step="0.0001"
+               style="--pct:{pct($audioConfig.agc_decay,0.990,0.9999)}"
+               bind:value={$audioConfig.agc_decay}/>
+        <p class="text-[10px] text-white/35 mt-1">Higher = slower gain adaptation</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Color saturation</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.color_saturation.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.3" max="1.0" step="0.01"
+               style="--pct:{pct($audioConfig.color_saturation,0.3,1.0)}"
+               bind:value={$audioConfig.color_saturation}/>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Brightness gamma</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.color_gamma.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.2" max="1.0" step="0.01"
+               style="--pct:{pct($audioConfig.color_gamma,0.2,1.0)}"
+               bind:value={$audioConfig.color_gamma}/>
+        <p class="text-[10px] text-white/35 mt-1">Lower = LEDs look brighter at mid-signal</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Idle glow floor</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.idle_floor.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0" max="0.2" step="0.005"
+               style="--pct:{pct($audioConfig.idle_floor,0,0.2)}"
+               bind:value={$audioConfig.idle_floor}/>
+      </div>
+    </div>
+
+    <!-- Onset settings -->
+    <div class="panel-card space-y-5">
+      <p class="sect-label">Beat / onset detection</p>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Flux threshold multiplier</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.onset_flux_multiplier.toFixed(1)}</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.1"
+               style="--pct:{pct($audioConfig.onset_flux_multiplier,0.5,4.0)}"
+               bind:value={$audioConfig.onset_flux_multiplier}/>
+        <p class="text-[10px] text-white/35 mt-1">Higher = fewer triggers (kick only); lower = triggers on every hit</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Min interval (ms)</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.onset_min_interval_ms}</span>
+        </div>
+        <input type="range" min="50" max="500" step="10"
+               style="--pct:{pct($audioConfig.onset_min_interval_ms,50,500)}"
+               bind:value={$audioConfig.onset_min_interval_ms}/>
+        <p class="text-[10px] text-white/35 mt-1">Debounce — prevents double-triggers on one kick</p>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Flash saturation</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.onset_flash_sat.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.0" max="1.0" step="0.05"
+               style="--pct:{pct($audioConfig.onset_flash_sat,0.0,1.0)}"
+               bind:value={$audioConfig.onset_flash_sat}/>
+        <p class="text-[10px] text-white/35 mt-1">0 = pure white flash; 1 = fully saturated color flash</p>
+      </div>
+
+      <!-- F-row flash toggle -->
+      <div class="flex items-center justify-between py-0.5">
         <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-white/80">{band.label} sensitivity</span>
-            <div class="flex items-center gap-2.5">
-              <span class="font-mono text-xs text-white/60">{$audioConfig[band.key]}</span>
-              <label class="relative w-5 h-5 rounded-md overflow-hidden cursor-pointer
-                            ring-1 ring-white/15 hover:ring-white/30 transition-all"
-                     style="background:{rgbToHex($audioConfig[band.color_key])}">
-                <input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                       value={rgbToHex($audioConfig[band.color_key])}
-                       on:input={e => audioConfig.update(c => ({...c,[band.color_key]:hexToRgb(e.target.value)}))}/>
-              </label>
-            </div>
-          </div>
-          <input type="range" min={band.range[0]} max={band.range[1]} step="10"
-                 style="--pct:{pct($audioConfig[band.key],band.range[0],band.range[1])}"
-                 value={$audioConfig[band.key]}
-                 on:input={e => audioConfig.update(c => ({...c,[band.key]:+e.target.value}))}/>
+          <p class="text-xs text-white/80">F-row flash</p>
+          <p class="text-[10px] text-white/35 mt-0.5">Flash Esc + F1–F12 on every detected onset</p>
         </div>
-      {/each}
-      <div class="divider pt-1">
-        <div class="flex justify-between items-baseline mb-3 pt-4">
-          <span class="text-xs text-white/80">Smoothing</span>
-          <span class="font-mono text-xs text-white/60">{$audioConfig.smoothing_falloff.toFixed(2)}</span>
-        </div>
-        <input type="range" min="0.3" max="0.99" step="0.01"
-               style="--pct:{pct($audioConfig.smoothing_falloff,0.3,0.99)}"
-               bind:value={$audioConfig.smoothing_falloff}/>
+        <button
+          class="relative w-10 h-5 rounded-full transition-colors duration-150 shrink-0
+                 {$audioConfig.frow_flash ? 'bg-white/90' : 'bg-white/10'}"
+          on:click={() => audioConfig.update(c => ({ ...c, frow_flash: !c.frow_flash }))}
+          role="switch"
+          aria-checked={$audioConfig.frow_flash}
+          title="Toggle F-row flash"
+        >
+          <span
+            class="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-150
+                   {$audioConfig.frow_flash ? 'translate-x-5 bg-black' : 'translate-x-0.5 bg-white/40'}"
+          ></span>
+        </button>
       </div>
     </div>
   {/if}
 
-  <!-- Start / Stop -->
+  <!-- ── Volume mode settings ───────────────────────────────────────── -->
+  {#if $audioMode === 'volume'}
+    <div class="panel-card space-y-5">
+      <p class="sect-label">Volume settings</p>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Attack</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.attack.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.1" max="1.0" step="0.01"
+               style="--pct:{pct($audioConfig.attack,0.1,1.0)}"
+               bind:value={$audioConfig.attack}/>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Release</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.release.toFixed(2)}</span>
+        </div>
+        <input type="range" min="0.01" max="0.4" step="0.01"
+               style="--pct:{pct($audioConfig.release,0.01,0.4)}"
+               bind:value={$audioConfig.release}/>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-baseline mb-3">
+          <span class="text-xs text-white/80">Silence gate (dBFS)</span>
+          <span class="font-mono text-xs text-white/60">{$audioConfig.silence_rms_db.toFixed(0)}</span>
+        </div>
+        <input type="range" min="-70" max="-20" step="1"
+               style="--pct:{pct($audioConfig.silence_rms_db,-70,-20)}"
+               bind:value={$audioConfig.silence_rms_db}/>
+        <p class="text-[10px] text-white/35 mt-1">Below this RMS level the board goes idle</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ── Start / Stop ───────────────────────────────────────────────── -->
   {#if $audioRunning}
     <button class="btn-danger w-full justify-center py-2.5 text-sm" on:click={stopAudio}>
       <Square size={13}/>Stop reactive
     </button>
   {:else}
     <button class="btn-primary w-full justify-center py-2.5 text-sm"
-            on:click={startAudio} disabled={!$connected}>
+            on:click={startAudio} disabled={!$connected || $calibrating}>
       <Radio size={13}/>Start reactive
     </button>
   {/if}
 
 </div>
+
+<style>
+  @keyframes calibrate-bar {
+    0%   { width: 0%;    opacity: 1;   }
+    85%  { width: 100%;  opacity: 1;   }
+    100% { width: 100%;  opacity: 0.3; }
+  }
+  :global(.animate-calibrate-bar) {
+    animation: calibrate-bar 2.5s ease-in-out forwards;
+  }
+</style>

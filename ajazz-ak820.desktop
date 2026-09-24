@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AK820 RGB
+GenericName=Keyboard RGB Control
+Comment=Per-key RGB, effects and audio reactive lighting for the Ajazz AK820 Max Plus
+Exec=/home/armoredvortex/Code/ajazz-ak820-max-plus/run.sh
+Icon=/home/armoredvortex/Code/ajazz-ak820-max-plus/icon.png
+Terminal=false
+Categories=Utility;HardwareSettings;
+Keywords=keyboard;rgb;lighting;
+StartupNotify=false
