@@ -10,10 +10,10 @@ if [ ! -f "$VENV/bin/activate" ]; then
     exit 1
 fi
 
-if [ ! -f "$ROOT/ui/dist/index.html" ]; then
-    echo "Frontend not built. Run ./install.sh first."
-    exit 1
-fi
+# Rebuild the frontend so run.sh always serves the latest source
+echo "Building frontend..."
+(cd "$ROOT/ui" && npm run build --silent)
+echo "Frontend ready."
 
 # shellcheck source=/dev/null
 source "$VENV/bin/activate"
