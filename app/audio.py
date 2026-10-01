@@ -117,8 +117,14 @@ class AudioEngine:
             return []
         devs = []
         for i, d in enumerate(sd.query_devices()):
+            # Skip raw ALSA hw: devices — they're not useful for loopback capture
+            if "(hw:" in d["name"]:
+                continue
             if d["max_input_channels"] > 0:
-                devs.append({"id": i, "name": d["name"]})
+                # Tag monitor/loopback sources so the UI can label them clearly
+                name = d["name"]
+                is_monitor = d["max_output_channels"] > 0  # has both in+out = virtual/monitor
+                devs.append({"id": i, "name": name, "monitor": is_monitor})
         return devs
 
     def start(self, mode: str, keyboard, device_id: int | None = None) -> bool:

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte'
-  import { Square, RefreshCw, Radio, ScanLine } from 'lucide-svelte'
+  import { Square, RefreshCw, Radio, ScanLine, ChevronDown, Check } from 'lucide-svelte'
   import {
     connected, audioDevices, audioRunning,
     audioDeviceId, audioConfig, calibrating, calibrationDone,
@@ -80,12 +80,28 @@
     }, 400)
   }
 
+  // ── Custom dropdown ───────────────────────────────────────────────
+  let dropdownOpen = false
+
+  $: monitors = $audioDevices.filter(d => d.monitor)
+  $: mics     = $audioDevices.filter(d => !d.monitor)
+  $: selectedLabel = $audioDeviceId === null
+    ? 'System default'
+    : ($audioDevices.find(d => d.id === $audioDeviceId)?.name ?? 'System default')
+
+  function selectDevice(id) {
+    audioDeviceId.set(id)
+    dropdownOpen = false
+  }
+
   function pct(val, min, max) {
     return ((val - min) / (max - min) * 100).toFixed(1) + '%'
   }
 </script>
 
-<div class="grid grid-cols-[1fr_1fr] gap-5 items-start">
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<div class="grid grid-cols-[1fr_1fr] gap-5 items-start"
+     on:click|self={() => { dropdownOpen = false }}>
 
   <!-- ── Left: device + calibrate + start/stop ─────────────────────── -->
   <div class="space-y-4">
@@ -101,26 +117,71 @@
         {/if}
       </div>
 
+      <!-- Custom dropdown -->
       <div class="flex items-center gap-2">
-        <select
-          class="flex-1 bg-white/[0.04] border border-white/10 rounded-md px-3 py-2
-                 text-xs text-white/80 focus:outline-none focus:border-white/25
-                 disabled:opacity-40 transition-colors"
-          bind:value={$audioDeviceId}
-          disabled={$audioRunning}
-        >
-          <option value={null}>System default</option>
-          {#each $audioDevices as d}
-            <option value={d.id}>{d.name}</option>
-          {/each}
-        </select>
+        <div class="relative flex-1 device-dd">
+          <!-- Trigger -->
+          <button
+            class="w-full flex items-center justify-between gap-2 px-3 py-2
+                   bg-white/[0.04] rounded-md text-xs text-white/80
+                   hover:text-white disabled:opacity-40 disabled:pointer-events-none
+                   transition-colors border {dropdownOpen ? 'border-white/25' : 'border-white/10'}"
+            on:click={() => { if (!$audioRunning) dropdownOpen = !dropdownOpen }}
+            disabled={$audioRunning}
+          >
+            <span class="truncate">{selectedLabel}</span>
+            <ChevronDown size={12} class="shrink-0 opacity-50 transition-transform {dropdownOpen ? 'rotate-180' : ''}"/>
+          </button>
+
+          <!-- Menu -->
+          {#if dropdownOpen}
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div class="dd-menu absolute z-50 left-0 right-0 top-full mt-1
+                        bg-[#111] border border-white/10 rounded-md shadow-2xl shadow-black/80
+                        overflow-hidden"
+                 on:click|stopPropagation>
+
+              <!-- System default -->
+              <button class="dd-item {$audioDeviceId === null ? 'dd-selected' : ''}"
+                      on:click={() => selectDevice(null)}>
+                <Check size={11} class="{$audioDeviceId === null ? 'opacity-100' : 'opacity-0'} shrink-0"/>
+                System default
+              </button>
+
+              {#if monitors.length}
+                <div class="dd-group">Monitor / Loopback</div>
+                {#each monitors as d}
+                  <button class="dd-item {$audioDeviceId === d.id ? 'dd-selected' : ''}"
+                          on:click={() => selectDevice(d.id)}>
+                    <Check size={11} class="{$audioDeviceId === d.id ? 'opacity-100' : 'opacity-0'} shrink-0"/>
+                    {d.name}
+                  </button>
+                {/each}
+              {/if}
+
+              {#if mics.length}
+                <div class="dd-group">Microphone</div>
+                {#each mics as d}
+                  <button class="dd-item {$audioDeviceId === d.id ? 'dd-selected' : ''}"
+                          on:click={() => selectDevice(d.id)}>
+                    <Check size={11} class="{$audioDeviceId === d.id ? 'opacity-100' : 'opacity-0'} shrink-0"/>
+                    {d.name}
+                  </button>
+                {/each}
+              {/if}
+
+            </div>
+          {/if}
+        </div>
+
         <button class="btn-ghost p-2 shrink-0" on:click={refreshDevices}
                 disabled={$audioRunning} title="Refresh">
           <RefreshCw size={12}/>
         </button>
       </div>
+
       <p class="text-[11px] text-white/40 leading-relaxed">
-        Use a Monitor / Loopback source to react to system audio.
+        Pick a <span class="text-white/60">Monitor / Loopback</span> source to react to speaker output.
       </p>
     </div>
 
@@ -168,7 +229,6 @@
   <div class="panel-card space-y-6">
     <p class="sect-label">Tuning</p>
 
-    <!-- Attack -->
     <div>
       <div class="flex justify-between items-baseline mb-2">
         <span class="text-xs text-white/80">Attack</span>
@@ -180,7 +240,6 @@
       <p class="text-[10px] text-white/35 mt-1">How fast bars rise to a peak</p>
     </div>
 
-    <!-- Release -->
     <div>
       <div class="flex justify-between items-baseline mb-2">
         <span class="text-xs text-white/80">Release</span>
@@ -192,7 +251,6 @@
       <p class="text-[10px] text-white/35 mt-1">How long bars linger after a peak</p>
     </div>
 
-    <!-- Color saturation -->
     <div>
       <div class="flex justify-between items-baseline mb-2">
         <span class="text-xs text-white/80">Color saturation</span>
@@ -204,7 +262,6 @@
       <p class="text-[10px] text-white/35 mt-1">Vivid colors vs. white wash</p>
     </div>
 
-    <!-- Idle glow -->
     <div>
       <div class="flex justify-between items-baseline mb-2">
         <span class="text-xs text-white/80">Idle glow</span>
@@ -216,7 +273,6 @@
       <p class="text-[10px] text-white/35 mt-1">Minimum brightness during silence</p>
     </div>
 
-    <!-- Beat sensitivity -->
     <div>
       <div class="flex justify-between items-baseline mb-2">
         <span class="text-xs text-white/80">Beat sensitivity</span>
@@ -240,5 +296,43 @@
   }
   :global(.animate-calibrate-bar) {
     animation: calibrate-bar 2.5s ease-in-out forwards;
+  }
+
+  :global(.dd-menu) {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  :global(.dd-group) {
+    padding: 0.35rem 0.75rem 0.2rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.30);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  :global(.dd-group:first-child) { border-top: none; }
+
+  :global(.dd-item) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.75);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+  }
+  :global(.dd-item:hover) {
+    background: rgba(255,255,255,0.07);
+    color: white;
+  }
+  :global(.dd-selected) {
+    color: white;
   }
 </style>
