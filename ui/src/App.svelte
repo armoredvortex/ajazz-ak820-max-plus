@@ -173,10 +173,10 @@
     <!-- Effects tab -->
     {:else if $activeTab === 'modes'}
       <div class="h-full overflow-y-auto">
-        <div class="max-w-2xl mx-auto px-8 py-8">
-          <div class="mb-6">
+        <div class="px-8 py-8 max-w-5xl w-full mx-auto">
+          <div class="mb-5">
             <h1 class="text-base font-semibold">Effects</h1>
-            <p class="text-sm text-white/55 mt-1">Changes apply instantly to the keyboard.</p>
+            <p class="text-sm text-white/55 mt-1">Set Keyboard RGB Effect</p>
           </div>
           <ModesPanel />
         </div>
@@ -185,8 +185,8 @@
     <!-- Audio tab -->
     {:else if $activeTab === 'audio'}
       <div class="h-full overflow-y-auto">
-        <div class="max-w-lg mx-auto px-8 py-8">
-          <div class="mb-6">
+        <div class="px-8 py-8 max-w-5xl w-full mx-auto">
+          <div class="mb-5">
             <h1 class="text-base font-semibold">Audio Reactive</h1>
             <p class="text-sm text-white/55 mt-1">Drive the keyboard LEDs from live audio.</p>
           </div>

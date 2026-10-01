@@ -45,7 +45,7 @@ DEFAULTS: dict = {
     "color_gamma":       0.45,
     "idle_floor":        0.06,   # minimum value (faint idle glow)
     "onset_flash_sat":   0.15,   # near-white flash saturation on hit
-    "frow_flash":        True,   # flash F-row on general onsets
+    "frow_flash":        False,   # flash F-row on general onsets
 
     # ── LED write ────────────────────────────────────────────────────
     "write_fps":     30,

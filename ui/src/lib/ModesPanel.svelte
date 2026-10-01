@@ -8,6 +8,7 @@
   $: hasD  = controls.includes('D')
   $: hasC  = controls.includes('C')
   $: hasC2 = controls.includes('C2')
+  $: hasControls = hasB || hasS || hasD || hasC || hasC2
 
   let _applyTimer = null
   $: if ($modeSettings && $connected) {
@@ -35,10 +36,11 @@
   }
 </script>
 
-<div class="space-y-6">
+<!-- Two-column grid: effect picker left, controls right -->
+<div class="grid grid-cols-[1fr_1fr] gap-5 items-start">
 
-  <!-- Effect grid -->
-  <div class="panel-card">
+  <!-- ── Left: effect grid ────────────────────────────────────────── -->
+  <div class="panel-card h-full">
     <p class="sect-label mb-4">Effect</p>
     <div class="grid grid-cols-3 gap-1.5">
       {#each $hardwareModes as m}
@@ -53,121 +55,134 @@
     </div>
   </div>
 
-  <!-- Sliders + Direction -->
-  {#if hasB || hasS || hasD}
-    <div class="panel-card space-y-5">
-      <p class="sect-label">Controls</p>
+  <!-- ── Right: controls (sliders, direction, color) ──────────────── -->
+  <div class="space-y-4">
 
-      {#if hasB || hasS}
-        <div class="grid gap-5" class:grid-cols-2={hasB && hasS}>
-          {#if hasB}
-            <div>
-              <div class="flex justify-between items-baseline mb-3">
-                <span class="text-xs text-white/80">Brightness</span>
-                <span class="font-mono text-xs text-white/60">{$modeSettings.brightness} / 4</span>
-              </div>
-              <input type="range" min="0" max="4" step="1"
-                     style="--pct:{pct($modeSettings.brightness,0,4)}"
-                     bind:value={$modeSettings.brightness}/>
+    {#if hasControls}
+
+      <!-- Sliders + Direction -->
+      {#if hasB || hasS || hasD}
+        <div class="panel-card space-y-5">
+          <p class="sect-label">Controls</p>
+
+          {#if hasB || hasS}
+            <div class="grid gap-5" class:grid-cols-2={hasB && hasS}>
+              {#if hasB}
+                <div>
+                  <div class="flex justify-between items-baseline mb-3">
+                    <span class="text-xs text-white/80">Brightness</span>
+                    <span class="font-mono text-xs text-white/60">{$modeSettings.brightness} / 4</span>
+                  </div>
+                  <input type="range" min="0" max="4" step="1"
+                         style="--pct:{pct($modeSettings.brightness,0,4)}"
+                         bind:value={$modeSettings.brightness}/>
+                </div>
+              {/if}
+              {#if hasS}
+                <div>
+                  <div class="flex justify-between items-baseline mb-3">
+                    <span class="text-xs text-white/80">Speed</span>
+                    <span class="font-mono text-xs text-white/60">{$modeSettings.speed} / 4</span>
+                  </div>
+                  <input type="range" min="0" max="4" step="1"
+                         style="--pct:{pct($modeSettings.speed,0,4)}"
+                         bind:value={$modeSettings.speed}/>
+                </div>
+              {/if}
             </div>
           {/if}
-          {#if hasS}
+
+          {#if hasD}
             <div>
-              <div class="flex justify-between items-baseline mb-3">
-                <span class="text-xs text-white/80">Speed</span>
-                <span class="font-mono text-xs text-white/60">{$modeSettings.speed} / 4</span>
+              <p class="text-xs text-white/80 mb-3">Direction</p>
+              <div class="flex gap-1.5">
+                {#each ['Forward','Reverse'] as label, i}
+                  <button
+                    class="px-4 py-1.5 rounded-md text-xs transition-all duration-100 border
+                           {$modeSettings.direction === i
+                             ? 'bg-white text-black font-semibold border-white'
+                             : 'text-white/65 border-white/10 hover:border-white/25 hover:text-white'}"
+                    on:click={() => modeSettings.update(s => ({ ...s, direction: i }))}
+                  >{label}</button>
+                {/each}
               </div>
-              <input type="range" min="0" max="4" step="1"
-                     style="--pct:{pct($modeSettings.speed,0,4)}"
-                     bind:value={$modeSettings.speed}/>
             </div>
           {/if}
         </div>
       {/if}
 
-      {#if hasD}
-        <div>
-          <p class="text-xs text-white/80 mb-3">Direction</p>
-          <div class="flex gap-1.5">
-            {#each ['Forward','Reverse'] as label, i}
+      <!-- Single color -->
+      {#if hasC && !hasC2}
+        <div class="panel-card">
+          <p class="sect-label mb-4">Color</p>
+          <div class="flex flex-wrap gap-2">
+            {#each $hardwareColors as c}
+              {@const hex = COLOR_HEX[c]}
               <button
-                class="px-4 py-1.5 rounded-md text-xs transition-all duration-100 border
-                       {$modeSettings.direction === i
+                class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs capitalize
+                       border transition-all duration-100
+                       {$modeSettings.color_name === c
                          ? 'bg-white text-black font-semibold border-white'
-                         : 'text-white/65 border-white/10 hover:border-white/25 hover:text-white'}"
-                on:click={() => modeSettings.update(s => ({ ...s, direction: i }))}
-              >{label}</button>
+                         : 'text-white/70 border-white/10 hover:border-white/25 hover:text-white bg-white/[0.03]'}"
+                on:click={() => modeSettings.update(s => ({ ...s, color_name: c }))}
+              >
+                {#if hex}
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{hex}"></span>
+                {:else}
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0"
+                        style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"></span>
+                {/if}
+                {c}
+              </button>
             {/each}
           </div>
         </div>
       {/if}
-    </div>
-  {/if}
 
-  <!-- Single color picker -->
-  {#if hasC && !hasC2}
-    <div class="panel-card">
-      <p class="sect-label mb-4">Color</p>
-      <div class="flex flex-wrap gap-2">
-        {#each $hardwareColors as c}
-          {@const hex = COLOR_HEX[c]}
-          <button
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs capitalize
-                   border transition-all duration-100
-                   {$modeSettings.color_name === c
-                     ? 'bg-white text-black font-semibold border-white'
-                     : 'text-white/70 border-white/10 hover:border-white/25 hover:text-white bg-white/[0.03]'}"
-            on:click={() => modeSettings.update(s => ({ ...s, color_name: c }))}
-          >
-            {#if hex}
-              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{hex}"></span>
-            {:else}
-              <span class="w-2.5 h-2.5 rounded-full shrink-0"
-                    style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"></span>
-            {/if}
-            {c}
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
-  <!-- Dual color picker (Dual Wave) -->
-  {#if hasC2}
-    <div class="panel-card">
-      <p class="sect-label mb-4">Colors</p>
-      <div class="grid grid-cols-2 gap-6">
-        {#each [
-          { label:'Primary',   field:'color_name'  },
-          { label:'Secondary', field:'color2_name' },
-        ] as col}
-          <div>
-            <p class="text-xs text-white/80 mb-3">{col.label}</p>
-            <div class="flex flex-wrap gap-1.5">
-              {#each $hardwareColors as c}
-                {@const hex = COLOR_HEX[c]}
-                <button
-                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs capitalize
-                         border transition-all duration-100
-                         {$modeSettings[col.field] === c
-                           ? 'bg-white text-black font-semibold border-white'
-                           : 'text-white/65 border-white/10 hover:border-white/25 hover:text-white bg-white/[0.03]'}"
-                  on:click={() => modeSettings.update(s => ({ ...s, [col.field]: c }))}
-                >
-                  {#if hex}
-                    <span class="w-2 h-2 rounded-full shrink-0" style="background:{hex}"></span>
-                  {:else}
-                    <span class="w-2 h-2 rounded-full shrink-0"
-                          style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"></span>
-                  {/if}
-                  {c}
-                </button>
-              {/each}
-            </div>
+      <!-- Dual color (Dual Wave) -->
+      {#if hasC2}
+        <div class="panel-card">
+          <p class="sect-label mb-4">Colors</p>
+          <div class="grid grid-cols-2 gap-6">
+            {#each [
+              { label:'Primary',   field:'color_name'  },
+              { label:'Secondary', field:'color2_name' },
+            ] as col}
+              <div>
+                <p class="text-xs text-white/80 mb-3">{col.label}</p>
+                <div class="flex flex-wrap gap-1.5">
+                  {#each $hardwareColors as c}
+                    {@const hex = COLOR_HEX[c]}
+                    <button
+                      class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs capitalize
+                             border transition-all duration-100
+                             {$modeSettings[col.field] === c
+                               ? 'bg-white text-black font-semibold border-white'
+                               : 'text-white/65 border-white/10 hover:border-white/25 hover:text-white bg-white/[0.03]'}"
+                      on:click={() => modeSettings.update(s => ({ ...s, [col.field]: c }))}
+                    >
+                      {#if hex}
+                        <span class="w-2 h-2 rounded-full shrink-0" style="background:{hex}"></span>
+                      {:else}
+                        <span class="w-2 h-2 rounded-full shrink-0"
+                              style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"></span>
+                      {/if}
+                      {c}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
-      </div>
-    </div>
-  {/if}
+        </div>
+      {/if}
 
+    {:else}
+      <!-- No controls for this effect -->
+      <div class="panel-card">
+        <p class="text-sm text-white/35 text-center py-6">No controls for this effect.</p>
+      </div>
+    {/if}
+
+  </div>
 </div>
