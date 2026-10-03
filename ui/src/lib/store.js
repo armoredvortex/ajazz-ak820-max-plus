@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store'
+import { NUM_LEDS, HARDWARE_MODES_LIST, COLOR_NAMES } from '$shared/protocol.js'
 
 // ── Connection ──────────────────────────────────────────────────────────
 export const connected    = writable(false)
@@ -9,7 +10,7 @@ export const statusError  = writable('')
 export const activeTab = writable('custom')
 
 // ── LED state (108 hex strings) ────────────────────────────────────────
-export const NUM_LEDS = 108
+export { NUM_LEDS }
 export const leds = writable(Array(NUM_LEDS).fill('#000000'))
 
 // ── Colour picker ──────────────────────────────────────────────────────

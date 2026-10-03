@@ -1,4 +1,4 @@
-# Python
+# ── Python ───────────────────────────────────────────────────────────
 venv/
 __pycache__/
 *.py[cod]
@@ -6,25 +6,28 @@ __pycache__/
 *.pyd
 .Python
 *.egg-info/
-dist/
 build/
 *.so
 
-# App state
+# ── App runtime state (not project files) ────────────────────────────
 ~/.config/ajazz-ak820/
 
-# Node
+# ── Node — both ui/ and web/ ─────────────────────────────────────────
+node_modules/
 ui/node_modules/
 ui/dist/
+web/node_modules/
+web/dist/
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────────────
 *.log
+npm-debug.log*
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Editor
+# ── Editor ───────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp

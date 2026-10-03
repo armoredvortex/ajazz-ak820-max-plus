@@ -48,7 +48,6 @@
     if ($connected) scheduleSend()
   }
 
-  // Key background is always dark. LED color drives glow + legend only.
   function keyStyle(hex, span) {
     const off = !hex || hex === '#000000'
     const col = `grid-column:span ${span};`
@@ -104,20 +103,20 @@
   }
 
   export async function fillAll() {
-    if (!$connected) { toast('Keyboard not connected','warn'); return }
+    if (!$connected) { toast('Keyboard not connected', 'warn'); return }
     try { const r = await api('set_all_color', $pickerColor); leds.set(r.leds) }
     catch(e) { toast(e.message, 'error') }
   }
 
   export async function clearAll() {
-    if (!$connected) { toast('Keyboard not connected','warn'); return }
+    if (!$connected) { toast('Keyboard not connected', 'warn'); return }
     try { const r = await api('turn_off'); leds.set(r.leds) }
     catch(e) { toast(e.message, 'error') }
   }
 
   export async function saveToHardware() {
-    if (!$connected) { toast('Keyboard not connected','warn'); return }
-    try { await api('save_to_hardware'); toast('Saved to keyboard','success') }
+    if (!$connected) { toast('Keyboard not connected', 'warn'); return }
+    try { await api('save_to_hardware'); toast('Saved to keyboard', 'success') }
     catch(e) { toast(e.message, 'error') }
   }
 </script>
@@ -169,20 +168,12 @@
 </div>
 
 <style>
-  /*
-   * All class names are prefixed kv- (keyboard visualizer) to avoid
-   * collisions since we use :global() to ensure @container rules apply.
-   * Svelte does not scope selectors inside @container blocks, so we must
-   * opt-in to global explicitly.
-   */
-
   :global(.kv-wrap) {
     width: 100%;
     max-width: 960px;
     user-select: none;
   }
 
-  /* Keyboard shell — the container */
   :global(.kv-shell) {
     aspect-ratio: 19 / 7;
     background-color: #020202;
@@ -214,11 +205,6 @@
       box-shadow: inset 0 0 2cqi rgba(0,0,0,0.9);
     }
 
-    /*
-     * Each row is a 64-column grid (16u x 4 subdivisions per unit),
-     * so fractional widths like 1.25u / 1.75u / 2.25u / 6.25u are exact.
-     * Keys use `grid-column: span N` (set inline).
-     */
     :global(.kv-row) {
       display: grid;
       grid-template-columns: repeat(64, minmax(0, 1fr));
@@ -232,7 +218,6 @@
       flex: 0.8;
     }
 
-    /* Base key */
     :global(.kv-key) {
       background-color: var(--kb, #0a0a0a);
       border: none;
@@ -290,7 +275,6 @@
     }
   }
 
-  /* Theme bar */
   :global(.kv-themebar) {
     display: flex;
     align-items: center;

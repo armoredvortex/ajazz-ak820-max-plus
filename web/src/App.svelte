@@ -8,54 +8,61 @@
   import AudioPanel         from './lib/AudioPanel.svelte'
 
   import {
-    connected, connecting, statusError,
+    connected, connecting, statusError, hidSupported,
     activeTab, leds, pickerColor,
-    hardwareModes, hardwareColors, audioDevices, audioRunning,
-    toast, toasts, api
+    hardwareModes, hardwareColors, audioDevices,
+    toast, toasts, api, loadPersistedLeds,
   } from './lib/store.js'
 
   let vizRef
 
-  async function waitForPywebview() {
-    return new Promise(resolve => {
-      if (window.pywebview?.api) { resolve(); return }
-      const id = setInterval(() => { if (window.pywebview?.api) { clearInterval(id); resolve() } }, 100)
-    })
-  }
-
   onMount(async () => {
-    await waitForPywebview()
-    try { const r = await api('get_hardware_modes'); hardwareModes.set(r.modes); hardwareColors.set(r.colors) } catch(_) {}
-    try { const r = await api('get_audio_devices'); audioDevices.set(r.devices) } catch(_) {}
-    window.addEventListener('kb-connected', e => { connected.set(true); leds.set(e.detail.leds) })
+    // Restore LED state from localStorage so the visualizer isn't blank
+    const saved = loadPersistedLeds()
+    if (saved) leds.set(saved)
+
+    // Pre-load audio devices (labels may be empty until user grants mic permission)
     try {
-      connecting.set(true)
-      const res = await api('connect')
-      connected.set(true); leds.set(res.leds)
-    } catch(e) { statusError.set(e.message) }
-    finally { connecting.set(false) }
+      const r = await api('get_audio_devices')
+      audioDevices.set(r.devices)
+    } catch (_) {}
   })
 
-  async function toggleConnect() {
-    if ($connected) {
-      try { await api('disconnect'); connected.set(false) } catch(e) { toast(e.message,'error') }
-    } else {
-      try {
-        connecting.set(true); statusError.set('')
-        const res = await api('connect')
-        connected.set(true); leds.set(res.leds)
-      } catch(e) { statusError.set(e.message); toast(e.message,'error') }
-      finally { connecting.set(false) }
+  async function connect() {
+    connecting.set(true)
+    statusError.set('')
+    try {
+      await api('connect')
+      connected.set(true)
+    } catch (e) {
+      statusError.set(e.message)
+      toast(e.message, 'error')
+    } finally {
+      connecting.set(false)
     }
   }
 
+  async function disconnect() {
+    try {
+      await api('disconnect')
+      connected.set(false)
+    } catch (e) {
+      toast(e.message, 'error')
+    }
+  }
+
+  async function toggleConnect() {
+    if ($connected) await disconnect()
+    else await connect()
+  }
+
   const TABS = [
-    { id:'custom', label:'Per-Key',  icon:Keyboard  },
-    { id:'modes',  label:'Effects',  icon:Sparkles  },
-    { id:'audio',  label:'Audio',    icon:Music2    },
+    { id: 'custom', label: 'Per-Key', icon: Keyboard },
+    { id: 'modes',  label: 'Effects', icon: Sparkles },
+    { id: 'audio',  label: 'Audio',   icon: Music2   },
   ]
 
-  const TOAST_ICON = { success:Check, error:AlertTriangle, warn:AlertTriangle, info:Info }
+  const TOAST_ICON = { success: Check, error: AlertTriangle, warn: AlertTriangle, info: Info }
   const TOAST_CLS  = {
     success: 'text-success border-success/20',
     error:   'text-danger  border-danger/20',
@@ -64,9 +71,26 @@
   }
 </script>
 
+<!-- WebHID not supported banner -->
+{#if !$hidSupported}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black">
+    <div class="max-w-sm text-center px-8">
+      <p class="text-4xl mb-4">⚠️</p>
+      <p class="text-base font-semibold mb-2">Browser not supported</p>
+      <p class="text-sm text-white/55 leading-relaxed">
+        WebHID requires Chrome or Edge 89+.<br/>
+        Firefox and Safari do not support WebHID.
+      </p>
+      <a href="https://caniuse.com/webhid"
+         class="inline-block mt-5 text-xs text-white/40 hover:text-white/70 underline underline-offset-2 transition-colors"
+         target="_blank" rel="noopener">Browser compatibility</a>
+    </div>
+  </div>
+{/if}
+
 <div class="flex h-screen overflow-hidden bg-black text-white">
 
-  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <!-- ── Sidebar ────────────────────────────────────────────────── -->
   <aside class="w-52 shrink-0 flex flex-col border-r border-white/10 py-5">
 
     <!-- Logo / title -->
@@ -112,15 +136,40 @@
           <ZapOff size={12} class="opacity-0 group-hover:opacity-70 transition-opacity shrink-0"/>
         {:else}
           <span class="w-1.5 h-1.5 rounded-full bg-white/30 shrink-0"></span>
-          <span class="text-xs flex-1">Disconnected</span>
+          <span class="text-xs flex-1">Click to connect</span>
           <Zap size={12} class="opacity-0 group-hover:opacity-70 transition-opacity shrink-0"/>
         {/if}
       </button>
+      {#if $statusError}
+        <p class="text-[10px] text-danger/80 mt-2 px-1 leading-snug">{$statusError}</p>
+      {/if}
+      <p class="text-[10px] text-white/25 mt-2 px-1 leading-snug">
+        Requires Chrome / Edge
+      </p>
+    </div>
+
+    <!-- GitHub link -->
+    <div class="px-5 mt-3 mb-1">
+      <a href="https://github.com/armoredvortex/ajazz-ak820-max-plus"
+         target="_blank" rel="noopener"
+         class="flex items-center gap-2 text-[11px] text-white/30 hover:text-white/60 transition-colors group">
+        <svg viewBox="0 0 16 16" class="w-3.5 h-3.5 shrink-0 fill-current" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                   0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                   -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                   .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                   -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+                   .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+                   .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+                   0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        Get the desktop app
+      </a>
     </div>
 
   </aside>
 
-  <!-- ── Main content ─────────────────────────────────────────────── -->
+  <!-- ── Main content ───────────────────────────────────────────── -->
   <main class="flex-1 overflow-hidden flex flex-col min-w-0">
 
     <!-- Per-Key tab -->
@@ -206,7 +255,7 @@
   </main>
 </div>
 
-<!-- ── Toasts ─────────────────────────────────────────────────────── -->
+<!-- ── Toasts ──────────────────────────────────────────────────── -->
 <div class="fixed bottom-5 right-5 flex flex-col gap-2 z-50 pointer-events-none">
   {#each $toasts as t (t.id)}
     {@const Icon = TOAST_ICON[t.type] ?? Info}

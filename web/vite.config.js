@@ -4,9 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [svelte()],
-  base: './',          // relative paths so file:// serving works
   resolve: {
     alias: {
+      // Allow both web/ and ui/ to import from shared/ as '$shared'
       '$shared': path.resolve(__dirname, '../shared'),
     },
   },
